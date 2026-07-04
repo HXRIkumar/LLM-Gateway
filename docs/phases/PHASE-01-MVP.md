@@ -62,9 +62,9 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** integration test asserts correct SSE framing and termination for both providers (mocked); `make check` green.
 
 ## Task 11 — Containerization & one-command run
-- [ ] Multi-stage `Dockerfile` (uv-based build; slim runtime; non-root user; healthcheck).
-- [ ] `docker-compose.yml`: `api` + `postgres` + `redis` with healthchecks and an env file; migrations run on startup.
-- [ ] `Makefile` targets from `CLAUDE.md` §9 all functional.
+- [x] Multi-stage `Dockerfile` (uv-based build; slim runtime; non-root user; healthcheck). Fixed a missing `COPY README.md` (needed to build the wheel).
+- [x] `docker-compose.yml`: `api` + `postgres` + `redis` with healthchecks and an env file; migrations run on startup. Fixed the folded-scalar `command` that dropped the gunicorn `-b 0.0.0.0:8080` bind.
+- [x] `Makefile` targets from `CLAUDE.md` §9 all functional.
 - **Accept:** `make up` yields a healthy stack reachable on `:8080`; a stock OpenAI SDK pointed at it completes unary + streamed calls; `make check` green.
 
 ## Task 12 — Compatibility gate & README quickstart

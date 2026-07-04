@@ -284,15 +284,18 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–10 complete — unary **and** streaming work. `POST /v1/chat/
-  completions` with `stream: true` returns SSE `chat.completion.chunk` events
-  terminated by `data: [DONE]` for both providers (OpenAI SSE and Ollama NDJSON,
-  changing only `model`); the stream is primed so routing/provider errors surface
-  as proper envelopes, not a broken 200. `make check` green (75 tests).
-- **Immediate next action:** Phase 1, Task 11 — containerization: finalize the
-  multi-stage Dockerfile + docker-compose (api + postgres + redis, healthchecks,
-  migrate-on-start) and confirm `make up` yields a healthy stack on :8080 that a
-  stock OpenAI SDK can hit (unary + streamed).
+- **State:** Tasks 1–11 complete — the stack runs in Docker. `make up` builds the
+  multi-stage image and brings up api + postgres + redis (healthchecks,
+  migrate-on-start); the API is healthy on :8080 with accurate /healthz + /readyz.
+  Verified a stock OpenAI SDK completes unary + streamed calls against the live
+  container (models.list, chat, stream) and a bad key → 401. Fixed two scaffolding
+  bugs: Dockerfile now copies README.md (wheel build), and the compose `command`
+  folded scalar no longer drops the gunicorn bind. `make check` green (75 tests).
+- **Immediate next action:** Phase 1, Task 12 — compatibility gate + README:
+  compat tests driving Conduit with the real OpenAI SDK (unary + streaming, both
+  providers), and fill in the README Quickstart with the exact verified commands.
+  Then confirm the full Phase 1 exit checklist + ROADMAP DoD and point §10 at
+  Phase 2.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

@@ -41,8 +41,8 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests with injected stats — fastest capable candidate chosen; cold-start (no stats) behaves sanely; `make check` green.
 
 ## Task 7 — Balanced strategy & strategy selection
-- [ ] `domain/routing/strategies/balanced.py`: combine normalized cost, latency, and capability fit into a single score with configurable weights.
-- [ ] `domain/routing/engine.py`: select the active strategy from the policy `objective`; `StaticStrategy` remains the default and is always used for requests that name a concrete model.
+- [x] `domain/routing/strategies/balanced.py`: combine min-max-normalized cost + latency into a single score with configurable weights (capability fit is enforced by pre-filtering).
+- [x] `domain/routing/engine.py`: `SmartRouter` selects the strategy from the policy `objective`; `StaticStrategy` remains the default and is used unchanged for any concrete model (byte-for-byte Phase 1/2, incl. config fallbacks).
 - **Accept:** unit tests — each objective selects the right strategy; a concrete-model request bypasses to static regardless of objective; weights change the balanced outcome as expected; `make check` green.
 
 ## Task 8 — Pipeline integration, docs & exit

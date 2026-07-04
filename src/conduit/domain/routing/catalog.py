@@ -46,6 +46,12 @@ class Catalog:
         """Return only the candidates that satisfy every requirement."""
         return [c for c in self._candidates if _satisfies(c.model, requirements)]
 
+    def find(self, provider: str, model_id: str) -> Candidate | None:
+        for candidate in self._candidates:
+            if candidate.provider == provider and candidate.model.id == model_id:
+                return candidate
+        return None
+
 
 def _satisfies(model: ModelInfo, req: Requirements) -> bool:
     if model.context_window < req.min_context:

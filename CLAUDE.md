@@ -284,17 +284,18 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–7 complete — skeleton/config/health; SQLAlchemy + Alembic +
-  Redis; pure domain core; provider abstraction + both adapters; and the routing
-  seam: `RoutingStrategy` protocol + `RoutingDecision` (provider/model + fallback
-  plan + reason) and `StaticStrategy` (explicit `model → provider` map). Config
-  gained `model_routes` overrides (wired in Task 9). `make check` green.
-- **Immediate next action:** Phase 1, Task 8 — API key management + auth:
-  `services/keys.py` (issue returning plaintext once; store hash + prefix;
-  verify by prefix + constant-time compare; list; revoke), bearer auth in
-  `api/middleware.py` (→ principal, OpenAI-shaped 401), admin endpoints under
-  `api/v1/admin/` guarded by the bootstrap admin key, and `cli.py` to mint the
-  first key. Integration tests: issue → authenticate → revoke → rejected.
+- **State:** Tasks 1–8 complete — skeleton/config/health; datastores; domain
+  core; providers + adapters; routing seam; and auth: `services/keys.py`
+  (issue/verify/list/revoke — plaintext shown once, only hash+prefix stored,
+  constant-time compare), bearer auth + admin guard in `api/middleware.py`, admin
+  key endpoints under `api/v1/admin/`, the `conduit keys create` CLI, and the
+  central OpenAI-shaped error handler in `api/errors.py`. `make check` green
+  (68 tests); CLI verified end-to-end against a real DB.
+- **Immediate next action:** Phase 1, Task 9 — the unary gateway pipeline:
+  `services/gateway.py` (authenticate → validate → preflight no-op → route →
+  execute → account no-op → respond), `api/v1/chat.py` (`POST /v1/chat/
+  completions`, non-streaming), `api/v1/models.py` (`GET /v1/models`), and the
+  RequestValidationError → OpenAI 400 handler in `api/errors.py`.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

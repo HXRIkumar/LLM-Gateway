@@ -9,12 +9,19 @@ duration. It never touches the request/response body, so streaming is unaffected
 
 from __future__ import annotations
 
+import hmac
 import time
 import uuid
+from typing import Annotated
 
 import structlog
+from fastapi import Depends, Header
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from conduit.api.deps import DbSessionDep, SettingsDep
+from conduit.domain.errors import AuthError
+from conduit.services.keys import KeyService, Principal
 
 logger = structlog.get_logger("conduit.access")
 
@@ -63,3 +70,40 @@ class RequestContextMiddleware:
                 duration_ms=duration_ms,
             )
             structlog.contextvars.clear_contextvars()
+
+
+# --- Bearer authentication ------------------------------------------------------
+
+
+def _extract_bearer(authorization: str | None) -> str:
+    """Pull the token out of an ``Authorization: Bearer <token>`` header."""
+    if not authorization:
+        raise AuthError("missing bearer credentials")
+    scheme, _, token = authorization.partition(" ")
+    token = token.strip()
+    if scheme.lower() != "bearer" or not token:
+        raise AuthError("malformed Authorization header; expected 'Bearer <key>'")
+    return token
+
+
+async def authenticate(
+    session: DbSessionDep,
+    authorization: Annotated[str | None, Header()] = None,
+) -> Principal:
+    """Resolve the request's bearer key to a principal, or raise a 401."""
+    token = _extract_bearer(authorization)
+    return await KeyService(session).verify(token)
+
+
+def require_admin(
+    settings: SettingsDep,
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    """Guard admin endpoints with the bootstrap admin key (constant-time compare)."""
+    token = _extract_bearer(authorization)
+    if not hmac.compare_digest(token, settings.admin_api_key.get_secret_value()):
+        raise AuthError("invalid admin credentials")
+
+
+CurrentPrincipal = Annotated[Principal, Depends(authenticate)]
+AdminGuard = Annotated[None, Depends(require_admin)]

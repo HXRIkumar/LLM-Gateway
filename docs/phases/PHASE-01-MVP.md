@@ -45,9 +45,9 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** unit tests assert requests map to the configured provider/model and produce a decision object; `make check` green.
 
 ## Task 8 — API key management & authentication
-- [ ] `services/keys.py`: issue (return the plaintext key once; store only the hash + prefix), verify (lookup by prefix, constant-time hash compare), list, revoke.
-- [ ] `api/middleware.py`: bearer-token auth resolving the key to a principal; reject missing/invalid keys with an OpenAI-shaped `401`.
-- [ ] Admin endpoints under `api/v1/admin/` to create/list/revoke keys (guarded by the bootstrap admin key). `cli.py` command to mint the first key.
+- [x] `services/keys.py`: issue (return the plaintext key once; store only the hash + prefix), verify (lookup by prefix, constant-time hash compare), list, revoke.
+- [x] `api/middleware.py`: bearer-token auth resolving the key to a principal; reject missing/invalid keys with an OpenAI-shaped `401`.
+- [x] Admin endpoints under `api/v1/admin/` to create/list/revoke keys (guarded by the bootstrap admin key). `cli.py` command to mint the first key.
 - **Accept:** integration tests cover issue → authenticate → revoke → rejected; keys never stored or logged in plaintext; `make check` green.
 
 ## Task 9 — The gateway pipeline (unary)

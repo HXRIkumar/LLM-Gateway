@@ -17,7 +17,9 @@ from fastapi import FastAPI
 
 from conduit import __version__
 from conduit.api import health
+from conduit.api.errors import register_exception_handlers
 from conduit.api.middleware import RequestContextMiddleware
+from conduit.api.v1.admin import keys as admin_keys
 from conduit.config import Settings
 from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
@@ -63,8 +65,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
 
     app.add_middleware(RequestContextMiddleware)
+    register_exception_handlers(app)
 
     app.include_router(health.router)
+    app.include_router(admin_keys.router)
 
     return app
 

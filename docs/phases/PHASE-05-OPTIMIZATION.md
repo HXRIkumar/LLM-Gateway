@@ -41,7 +41,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test — after simulated degraded stats for a provider, the adaptive strategy shifts selection away from it; when stats recover, selection returns; `make check` green.
 
 ## Task 8 — Benchmarking harness
-- [ ] A benchmarking capability (CLI `conduit bench`) that drives a configurable workload across providers/models and reports latency (p50/p95/p99), cost, throughput, and error rate as a table. Runs against mocked providers by default, with a `--live` flag for real backends.
+- [x] A benchmarking capability (CLI `conduit bench`) that drives a configurable workload across providers/models and reports latency (p50/p95/p99), cost, throughput, and error rate as a table. Runs against mocked providers by default, with a `--live` flag for real backends. *`Benchmark` service (pure percentile helper in `domain/optimize/bench.py`); `conduit bench --requests/--concurrency/--model/--live` prints a coherent table.*
 - **Accept:** the benchmark runs against mocked providers and emits a coherent results table; `make check` green.
 
 ## Task 9 — Docs, final integration & exit

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # add or override them (e.g. {"gpt-4o-mini": "openai"}). Parsed from JSON when
     # set via CONDUIT_MODEL_ROUTES.
     model_routes: dict[str, str] = Field(default_factory=dict)
+    # Ordered fallback model ids per requested model (each resolved via model_routes).
+    # e.g. {"gpt-4o-mini": ["llama3.2"]}. Parsed from JSON via CONDUIT_MODEL_FALLBACKS.
+    model_fallbacks: dict[str, list[str]] = Field(default_factory=dict)
 
     # --- Rate limiting (Phase 2) ---
     rate_limit_enabled: bool = True

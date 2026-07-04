@@ -286,16 +286,18 @@ raw one-off invocation.
 - **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
   on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
   `v0.1.0`, and pushed.
-- **State:** Phase 2 Tasks 1-5 done — accounting, rate limiting, budgets, retry,
-  circuit breaker. Pure `domain/reliability/breaker.py` state machine +
-  `RedisCircuitBreaker` (shared per-provider state, atomic Lua, fail-open) wired
-  into unary execute: open → fast-fail; retryable execute failure records a
-  breaker failure; success closes it. Integration tests flush ephemeral Redis
-  state per test for isolation. `make check` green (116 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 6 — automatic fallback:
-  `domain/reliability/fallback.py` walking the `RoutingDecision` fallback plan
-  (retryable failure or open breaker → next target; exhaustion →
-  `AllProvidersFailed`), integrated into one coherent execute path.
+- **State:** Phase 2 Tasks 1-6 done — accounting, rate limiting, budgets, retry,
+  breaker, and automatic fallback. `domain/reliability/fallback.py` walks the
+  `RoutingDecision` plan (retryable/breaker-open → next target; terminal → raise;
+  exhaustion → `AllProvidersFailed`); the execute path integrates retry + breaker
+  + fallback (unary) and breaker + fallback-before-first-byte (streaming, never
+  retried mid-stream). `StaticStrategy` builds the plan from `CONDUIT_MODEL_
+  FALLBACKS`. Accounting records the actual serving target. `make check` green
+  (123 tests), compat gate intact.
+- **Immediate next action:** Phase 2 Task 7 — health probes & arq workers: add
+  `arq`, `workers/` (periodic per-provider health probe feeding breaker/health
+  state + a usage-rollup job), a `make worker` target, and surface provider
+  health.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

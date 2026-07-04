@@ -44,8 +44,8 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** unit tests for all state transitions; integration test (real Redis) — consecutive failures open the breaker, calls fast-fail while open, a half-open probe closes it on success; `make check` green.
 
 ## Task 6 — Automatic fallback (complete `execute`)
-- [ ] `domain/reliability/fallback.py`: walk the `RoutingDecision` fallback plan — on a retryable failure or an open breaker, try the next provider/model in the plan; exhaustion → `AllProvidersFailed`.
-- [ ] Integrate retry + breaker + fallback into one coherent `execute` path in `services/gateway.py` (order: try target under retry+breaker → on terminal failure walk the plan → else `AllProvidersFailed`).
+- [x] `domain/reliability/fallback.py`: walk the `RoutingDecision` fallback plan — on a retryable failure or an open breaker, try the next provider/model in the plan; exhaustion → `AllProvidersFailed`. Plan populated by `StaticStrategy` from `CONDUIT_MODEL_FALLBACKS`.
+- [x] Integrate retry + breaker + fallback into one coherent `execute` path in `services/gateway.py` (unary: retry+breaker per target, walk the plan; streaming: breaker + fallback-before-first-byte, never retried mid-stream).
 - **Accept:** integration test (`respx` + real Redis) — primary failing or breaker-open lands on the fallback per the plan; all-fail maps to a clean OpenAI-shaped `5xx`; the same canonical schema flows unchanged across the fallback; `make check` green.
 
 ## Task 7 — Health probes & `arq` workers

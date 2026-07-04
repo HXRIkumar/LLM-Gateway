@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.provider_registry = registry
     # Static routes: derived from advertised models, with config overrides on top.
     routes = {**registry.model_provider_map(), **settings.model_routes}
-    app.state.routing_strategy = StaticStrategy(routes)
+    app.state.routing_strategy = StaticStrategy(routes, fallbacks=settings.model_fallbacks)
 
     try:
         yield

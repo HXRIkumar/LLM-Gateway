@@ -18,11 +18,18 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 import structlog
 
-from conduit.domain.errors import BudgetExceeded, ConduitError, ProviderError, RateLimited
+from conduit.domain.errors import (
+    AllProvidersFailed,
+    BudgetExceeded,
+    ConduitError,
+    ProviderError,
+    RateLimited,
+)
 from conduit.domain.reliability.breaker import CircuitBreaker
+from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_async
-from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy
+from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy, RoutingTarget
 from conduit.domain.schemas import (
     ChatCompletionChunk,
     ChatCompletionRequest,
@@ -72,14 +79,39 @@ class Gateway:
         self, request: ChatCompletionRequest, principal: Principal
     ) -> ChatCompletionResponse:
         decision = await self._plan(request, principal)
-        provider = self._registry.get(decision.provider)
         start = time.perf_counter()
-        response = await self._execute_unary(provider, request)
+        response, target = await self._execute_with_fallback(request, decision)
         latency_ms = int((time.perf_counter() - start) * 1000)
         await self._account(
-            decision, principal, usage=response.usage, latency_ms=latency_ms, status="ok"
+            target.provider,
+            target.model,
+            principal,
+            usage=response.usage,
+            latency_ms=latency_ms,
+            status="ok",
         )
         return response
+
+    async def _execute_with_fallback(
+        self, request: ChatCompletionRequest, decision: RoutingDecision
+    ) -> tuple[ChatCompletionResponse, RoutingTarget]:
+        """Try the primary then each fallback (breaker + retry per target)."""
+        targets = [
+            RoutingTarget(provider=decision.provider, model=decision.model),
+            *decision.fallbacks,
+        ]
+
+        async def attempt(target: RoutingTarget) -> ChatCompletionResponse:
+            provider = self._registry.get(target.provider)
+            return await self._execute_unary(provider, self._for_target(request, target))
+
+        return await walk_fallback(targets, attempt)
+
+    @staticmethod
+    def _for_target(request: ChatCompletionRequest, target: RoutingTarget) -> ChatCompletionRequest:
+        if target.model == request.model:
+            return request
+        return request.model_copy(update={"model": target.model})
 
     async def _execute_unary(
         self, provider: Provider, request: ChatCompletionRequest
@@ -111,18 +143,60 @@ class Gateway:
         self, request: ChatCompletionRequest, principal: Principal
     ) -> AsyncIterator[ChatCompletionChunk]:
         decision = await self._plan(request, principal)
-        provider = self._registry.get(decision.provider)
+        targets = [
+            RoutingTarget(provider=decision.provider, model=decision.model),
+            *decision.fallbacks,
+        ]
         start = time.perf_counter()
-        last_usage: Usage | None = None
-        async for chunk in provider.stream_chat_completion(request):
+        iterator, target, first_chunk = await self._open_stream(request, targets)
+        last_usage: Usage | None = first_chunk.usage
+        yield first_chunk
+        async for chunk in iterator:
             if chunk.usage is not None:
                 last_usage = chunk.usage
             yield chunk
         # Reached only on full, successful completion (after [DONE]).
         latency_ms = int((time.perf_counter() - start) * 1000)
         await self._account(
-            decision, principal, usage=last_usage, latency_ms=latency_ms, status="ok"
+            target.provider,
+            target.model,
+            principal,
+            usage=last_usage,
+            latency_ms=latency_ms,
+            status="ok",
         )
+
+    async def _open_stream(
+        self, request: ChatCompletionRequest, targets: list[RoutingTarget]
+    ) -> tuple[AsyncIterator[ChatCompletionChunk], RoutingTarget, ChatCompletionChunk]:
+        """Prime a stream, falling back before the first byte. Never retried mid-stream."""
+        last: ConduitError | None = None
+        for target in targets:
+            provider = self._registry.get(target.provider)
+            if self._breaker is not None and not await self._breaker.allow(provider.name):
+                last = ProviderError(f"circuit breaker open for provider {provider.name!r}")
+                continue
+            iterator = provider.stream_chat_completion(
+                self._for_target(request, target)
+            ).__aiter__()
+            try:
+                first_chunk = await iterator.__anext__()
+            except StopAsyncIteration:
+                last = ProviderError(f"provider {provider.name!r} returned an empty stream")
+                if self._breaker is not None:
+                    await self._breaker.record_failure(provider.name)
+                continue
+            except ConduitError as exc:
+                if not is_retryable(exc):
+                    raise
+                if self._breaker is not None:
+                    await self._breaker.record_failure(provider.name)
+                last = exc
+                continue
+            if self._breaker is not None:
+                await self._breaker.record_success(provider.name)
+            return iterator, target, first_chunk
+        raise AllProvidersFailed("all providers in the routing plan failed") from last
 
     # --- stages -------------------------------------------------------------
 
@@ -166,7 +240,8 @@ class Gateway:
 
     async def _account(
         self,
-        decision: RoutingDecision,
+        provider: str,
+        model: str,
         principal: Principal,
         *,
         usage: Usage | None,
@@ -176,8 +251,8 @@ class Gateway:
         await self._usage.record(
             org_id=principal.org_id,
             api_key_id=principal.api_key_id,
-            provider=decision.provider,
-            model=decision.model,
+            provider=provider,
+            model=model,
             usage=usage,
             latency_ms=latency_ms,
             status=status,

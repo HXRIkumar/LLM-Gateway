@@ -15,10 +15,10 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** `make dev` boots; `/healthz` returns 200; `/readyz` reflects real dependency state; `make check` green.
 
 ## Task 2 — Datastore foundation
-- [ ] `infra/db/`: async SQLAlchemy 2.0 engine + session management (asyncpg); dependency-injected sessions.
-- [ ] Alembic initialized under `infra/db/alembic/`; `make migrate` / `make revision` wired.
-- [ ] First migration: `organization`, `api_key` (with `key_hash`, `prefix`, `status`) tables (see `docs/ARCHITECTURE.md` §9).
-- [ ] `infra/redis.py`: async redis client wired into lifespan.
+- [x] `infra/db/`: async SQLAlchemy 2.0 engine + session management (asyncpg); dependency-injected sessions.
+- [x] Alembic initialized under `infra/db/alembic/`; `make migrate` / `make revision` wired.
+- [x] First migration: `organization`, `api_key` (with `key_hash`, `prefix`, `status`) tables (see `docs/ARCHITECTURE.md` §9).
+- [x] `infra/redis.py`: async redis client wired into lifespan.
 - **Accept:** migrations apply to the compose Postgres; integration test (testcontainers) opens a session and round-trips a row; `make check` green.
 
 ## Task 3 — Canonical schemas (domain)

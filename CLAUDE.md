@@ -284,13 +284,15 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Task 1 complete — project skeleton, `Settings`, app factory +
-  lifespan (DB/redis/httpx shared clients), structlog + request-id middleware,
-  and `/healthz` + `/readyz` are in place with unit tests; `make check` green.
-- **Immediate next action:** Phase 1, Task 2 — datastore foundation: async
-  SQLAlchemy engine + session management, Alembic under `infra/db/alembic/`,
-  the first migration (`organization`, `api_key`), and integration tests on
-  testcontainers Postgres + Redis.
+- **State:** Tasks 1–2 complete — skeleton, `Settings`, app factory + lifespan;
+  structlog + request-id middleware; `/healthz` + `/readyz`; async SQLAlchemy
+  engine + session factory, Alembic (initial `organization` + `api_key`
+  migration), Redis client. Integration tests run on testcontainers Postgres +
+  Redis; `make check` green.
+- **Immediate next action:** Phase 1, Task 3 — canonical domain schemas
+  (`domain/schemas.py`: OpenAI-compatible request/response/chunk/usage) and the
+  `domain/errors.py` exception hierarchy, with unit tests round-tripping real
+  OpenAI request/response fixtures.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

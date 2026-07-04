@@ -20,6 +20,7 @@ from conduit.api import health
 from conduit.api.middleware import RequestContextMiddleware
 from conduit.config import Settings
 from conduit.infra.db.engine import create_db_engine
+from conduit.infra.db.session import create_sessionmaker
 from conduit.infra.redis import create_redis_client
 from conduit.infra.telemetry.logging import configure_logging
 
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(settings.request_timeout_seconds))
 
     app.state.db_engine = engine
+    app.state.db_sessionmaker = create_sessionmaker(engine)
     app.state.redis = redis_client
     app.state.http_client = http_client
 

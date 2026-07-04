@@ -8,12 +8,13 @@ signatures readable.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated, cast
 
 import httpx
 from fastapi import Depends, Request
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
 from conduit.infra.db.engine import check_database
@@ -36,8 +37,16 @@ def get_http_client(request: Request) -> httpx.AsyncClient:
     return cast(httpx.AsyncClient, request.app.state.http_client)
 
 
+async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
+    """Yield a per-request session from the shared session factory."""
+    factory = cast("async_sessionmaker[AsyncSession]", request.app.state.db_sessionmaker)
+    async with factory() as session:
+        yield session
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbEngineDep = Annotated[AsyncEngine, Depends(get_db_engine)]
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 

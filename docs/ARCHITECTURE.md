@@ -309,6 +309,34 @@ approach and the binding cardinality/redaction contract.
 - **Logs:** structlog JSON in prod; one correlated `request.completed` access log
   per request, keyed by the request-id issued at the edge.
 
+## 10a. Optimization (V5) ✅ built
+
+Wraps the **execute** stage (§5 step 6) with cache read/write and feeds the
+observability signals back into routing. Policies are pure in `domain/optimize/`
+behind ports; state lives in Redis/Postgres via infra adapters. See ADR-0008.
+
+- **Exact-match cache.** Deterministic, single-shaped requests only
+  (`temperature == 0`, no tools/vision, single choice). Redis store with TTL,
+  fail-open; `Cache-Control: no-store` bypasses. Unary and streaming (reassemble
+  then cache; replay a cached hit as well-formed SSE).
+- **In-flight dedup.** App-scoped asyncio single-flight collapses concurrent
+  identical cacheable requests into one upstream call; failures propagate to all
+  waiters and are not memoized (per-worker).
+- **Semantic cache.** `Embedder` + `SemanticIndex` ports; a Redis brute-force
+  cosine index over recent prompts maps a near-match to the same cache key. Off by
+  default; shares the exact-cache safety guards.
+- **Replay.** Opt-in `request_log` capture (bodies, never credentials);
+  `POST /v1/admin/replays/{id}` re-runs a captured request through the pipeline
+  (cache bypassed) under an optional policy override.
+- **Cost prediction.** `POST /v1/estimate` (chosen + alternatives) and a
+  `conduit.estimated_cost_usd` span attribute; additive, never billing, never
+  touching the chat contract.
+- **Adaptive routing.** The balanced strategy de-weights a provider whose rolling
+  error rate climbs (`ErrorStats` port); the `refresh_route_stats` worker maintains
+  the aggregates in Redis; fail-open.
+- **Benchmarking.** `conduit bench` reports latency percentiles, throughput, cost,
+  and error rate across providers/models (mocked by default, `--live` for real).
+
 ## 11. Cross-cutting concerns
 
 - **Security & secrets.** Gateway-issued keys stored as hashes (lookup by prefix + verify hash). Upstream provider credentials are externalized/encrypted, never logged. Central redaction in logging/tracing. Errors never echo secrets or full request bodies.

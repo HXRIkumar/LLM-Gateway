@@ -283,39 +283,35 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 5 — Optimization (`docs/phases/PHASE-05-OPTIMIZATION.md`).
-  Phases 1-4 are complete, merged, tagged (`v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`),
-  pushed.
-- **State:** ✅ **Phase 4 (Observability) complete** — every task + exit checklist
-  in `docs/phases/PHASE-04-OBSERVABILITY.md` ticked and the ROADMAP Phase 4 DoD
-  holds. Structured `request.completed` access logs (no secrets/bodies);
-  OpenTelemetry tracing (root `gateway.chat_completion`/`stream_*` span +
-  `gateway.route` + per-attempt `provider.request`, span events for breaker/rate-
-  limit/budget), no-op when OTLP unset; Prometheus metrics on a per-app registry
-  scraped at `/metrics` (gated by `CONDUIT_METRICS_ENABLED`), low-cardinality
-  labels only; breaker + governance signals surfaced as metrics **and** span
-  events; `deploy/{otel,prometheus,grafana}` configs + three provisioned Grafana
-  dashboards. Instrumented at `services/` boundaries, never in `domain/`; tracer +
-  metrics injected (no global singletons). ADR-0007 records the approach and the
-  binding cardinality/redaction contract. `make check` green (179 tests), compat
-  gate intact.
-  - **Caveat (Phase 4 Task 5):** the live `make up-observability` bring-up was not
-    executed in this sandbox — Docker Desktop file-sharing excludes the repo path
-    (`/Users/hari/Downloads`), so bind-mounting `./deploy/*` config volumes fails
-    with "operation not permitted". Instead the configs were validated with their
-    native validators: `promtool check config` ✓, collector `validate` ✓, all
-    deploy YAML parses, and `docker compose config` resolves. Grafana panel queries
-    were verified to reference only series the gateway emits. To fully verify:
-    enable file sharing for the repo path (or move the repo under a shared path)
-    and run `make up-observability`, then confirm the Prometheus api target is `up`
-    and Grafana auto-loads the datasource + dashboards.
-- **Immediate next action:** Begin Phase 5 — Optimization. Per
-  `docs/phases/PHASE-05-OPTIMIZATION.md`: embeddings behind a mockable port,
-  semantic cache (byte-identical safe cases only — never tool/vision/non-
-  deterministic requests), dedup, replay, cost prediction, adaptive routing, and
-  benchmarking. New ADR-0008. Cache read/write wraps execute in `services/gateway`
-  (§5 step 6); providers/embeddings stay mockable; datastores real via
-  testcontainers; compat gate must stay green.
+- **Active phase:** ✅ **Roadmap complete** — MVP→V5 all built, merged, tagged
+  (`v0.1.0`–`v0.5.0`), pushed. Next area of work: **post-V5 hardening** (see
+  "Immediate next action").
+- **State:** ✅ **Phase 5 (Optimization) complete** — every task + exit checklist
+  in `docs/phases/PHASE-05-OPTIMIZATION.md` ticked and the ROADMAP Phase 5 DoD
+  holds. Exact-match response cache (deterministic/single-shaped only, Redis TTL,
+  fail-open, `Cache-Control: no-store` bypass, unary + streaming); in-flight
+  single-flight dedup (app-scoped asyncio, per-worker); semantic near-match cache
+  (`Embedder` + `SemanticIndex` ports, Redis brute-force cosine, off by default,
+  reuses the exact cache + its safety guards); opt-in replay capture (`request_log`,
+  bodies but never credentials) + `POST /v1/admin/replays/{id}` with policy
+  override; pre-flight cost prediction (`POST /v1/estimate` + span attribute,
+  chat contract untouched); error-rate adaptive routing (balanced `ErrorStats`
+  term + `refresh_route_stats` worker, fail-open); `conduit bench` harness. Pure
+  policies in `domain/optimize/`, state via infra adapters. ADR-0008 records the
+  design. `make check` green (220 tests), compat gate intact.
+  - **Caveat (Phase 4 Task 5, still open):** the live `make up-observability`
+    bring-up was not executed in this sandbox — Docker Desktop file-sharing
+    excludes the repo path (`/Users/hari/Downloads`), so bind-mounting `./deploy/*`
+    config volumes fails. Configs were validated with `promtool check config` ✓,
+    collector `validate` ✓, YAML parse, and `docker compose config`; Grafana panel
+    queries verified against the emitted series. To fully verify: enable file
+    sharing for the repo path (or move the repo) and run `make up-observability`.
+- **Immediate next action:** Post-V5 hardening (no roadmap phase pending). Sensible
+  next steps: add more provider adapters (Anthropic, Gemini, Bedrock, vLLM) behind
+  the existing `providers/base.Provider` contract; per-key/org replay + semantic-
+  cache enablement (currently global config); K8s/Helm deploy; load/perf testing;
+  and completing the live observability-profile verification noted in the caveat.
+  Nothing is required — the planned roadmap is done.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

@@ -45,20 +45,20 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** the benchmark runs against mocked providers and emits a coherent results table; `make check` green.
 
 ## Task 9 — Docs, final integration & exit
-- [ ] Write **ADR-0008** (caching + dedup + semantic strategy + replay privacy + adaptive routing). Update `docs/ARCHITECTURE.md` (optimization/caching section) and the `README.md` feature list (add caching, dedup, cost prediction, adaptive routing, benchmarking; include any benchmark numbers). Update `CLAUDE.md` §10 to mark the roadmap complete and note post-V5 hardening as the next area.
-- [ ] One end-to-end integration pass exercising cache → dedup → (semantic) → predict → adaptive routing together on a request path, with the compat gate re-run.
+- [x] Write **ADR-0008** (caching + dedup + semantic strategy + replay privacy + adaptive routing). Update `docs/ARCHITECTURE.md` (optimization/caching section) and the `README.md` feature list (add caching, dedup, cost prediction, adaptive routing, benchmarking; include any benchmark numbers). Update `CLAUDE.md` §10 to mark the roadmap complete and note post-V5 hardening as the next area.
+- [x] One end-to-end integration pass exercising cache → dedup → (semantic) → predict → adaptive routing together on a request path, with the compat gate re-run.
 - **Accept:** the Phase 5 exit checklist below and the ROADMAP Phase 5 **DoD** hold; the OpenAI compatibility gate still passes; `make check` green.
 
 ---
 
 ### Phase 5 exit checklist
-- [ ] Exact-match cache serves identical cacheable requests with no upstream call, for unary and streaming, with correct framing; bypass works.
-- [ ] In-flight dedup collapses concurrent identical requests to a single upstream call.
-- [ ] Semantic cache serves near-matches above threshold (mocked embedder in tests) and respects all safety guards.
-- [ ] Replay capture is opt-in/off-by-default and redaction-safe; replay re-runs a captured request through the current pipeline.
-- [ ] Cost prediction is exposed additively without changing the OpenAI-compatible chat contract.
-- [ ] Adaptive routing shifts selection in response to changing cost/latency/error stats and recovers.
-- [ ] The benchmarking harness produces a results table across providers/models.
-- [ ] `make check` green; integration tests use real Redis + Postgres (testcontainers) with providers and the embedder mocked; a hit is proven to make no upstream call.
-- [ ] OpenAI compatibility intact — the compat gate still passes (no regression).
-- [ ] Docs (`ARCHITECTURE`, ADR-0008, `README`, `CLAUDE.md` §10) reflect reality.
+- [x] Exact-match cache serves identical cacheable requests with no upstream call, for unary and streaming, with correct framing; bypass works.
+- [x] In-flight dedup collapses concurrent identical requests to a single upstream call.
+- [x] Semantic cache serves near-matches above threshold (mocked embedder in tests) and respects all safety guards.
+- [x] Replay capture is opt-in/off-by-default and redaction-safe; replay re-runs a captured request through the current pipeline.
+- [x] Cost prediction is exposed additively without changing the OpenAI-compatible chat contract.
+- [x] Adaptive routing shifts selection in response to changing cost/latency/error stats and recovers.
+- [x] The benchmarking harness produces a results table across providers/models.
+- [x] `make check` green; integration tests use real Redis + Postgres (testcontainers) with providers and the embedder mocked; a hit is proven to make no upstream call.
+- [x] OpenAI compatibility intact — the compat gate still passes (no regression).
+- [x] Docs (`ARCHITECTURE`, ADR-0008, `README`, `CLAUDE.md` §10) reflect reality.

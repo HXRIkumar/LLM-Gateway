@@ -32,7 +32,7 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests — a concrete model → the exact same single candidate as Phase 1's static mapping; an alias → its ordered candidate set; an unknown model still yields the OpenAI-shaped `404` from Phase 1; `make check` green.
 
 ## Task 5 — Cost-optimized strategy
-- [ ] `domain/routing/strategies/cost.py`: among candidates that satisfy the request's requirements and the policy's allow/deny rules, choose the lowest **estimated cost** (prompt tokens + expected completion tokens × per-token pricing from the catalog). Build the fallback plan in ascending cost order.
+- [x] `domain/routing/strategies/cost.py`: `rank_by_cost` orders candidates by estimated cost (prompt + expected completion tokens against catalog pricing); the engine (Task 7/8) filters by requirements + policy first and builds the fallback plan in ascending cost order.
 - **Accept:** unit tests — the cheapest capable+allowed candidate is chosen; incapable/denied candidates are excluded; ties break deterministically; the decision carries an ordered fallback plan; `make check` green.
 
 ## Task 6 — Latency-optimized strategy + a stats port

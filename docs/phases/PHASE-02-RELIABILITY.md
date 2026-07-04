@@ -55,21 +55,21 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** integration test — a worker probe cycle updates health/breaker state in Redis; a rollup job aggregates `usage_record` rows correctly; `make check` green. (Worker boot smoke-tested end-to-end via `arq`.)
 
 ## Task 8 — Pipeline integration, docs & exit
-- [ ] Confirm the full pipeline order per `CLAUDE.md` §5: preflight (rate limit + budget) → route → execute (retry → breaker → fallback) → account (usage) — all seams now live, none pulled past their stage.
-- [ ] Write **ADR-0005** (reliability model + Redis fail-safe posture for rate limits vs budgets). Update `docs/ARCHITECTURE.md` (reliability section / breaker state diagram) and `CLAUDE.md` §10 to point at Phase 3.
-- [ ] One end-to-end integration test exercising limit + budget + retry + breaker + fallback + accounting together on a single request path.
+- [x] Confirm the full pipeline order per `CLAUDE.md` §5: preflight (rate limit + budget) → route → execute (retry → breaker → fallback) → account (usage) — all seams now live, none pulled past their stage.
+- [x] Write **ADR-0005** (reliability model + Redis fail-safe posture for rate limits vs budgets). Update `docs/ARCHITECTURE.md` (reliability section) and `CLAUDE.md` §10 to point at Phase 3.
+- [x] One end-to-end integration test exercising limit + budget + retry + breaker + fallback + accounting together on a single request path.
 - **Accept:** the entire Phase 2 exit checklist below and the ROADMAP Phase 2 **DoD** hold; `make check` green.
 
 ---
 
 ### Phase 2 exit checklist
-- [ ] Rate limits enforced per key/org, atomic via Lua, `429` + `Retry-After`, fail-open on a Redis outage (per ADR-0005).
-- [ ] Budgets enforced from real usage accounting; over-budget → correct OpenAI billing envelope; resets per period.
-- [ ] Usage + cost persisted accurately for **both** unary and streaming.
-- [ ] Retries bounded with backoff + jitter, on retryable errors only, never mid-stream.
-- [ ] Per-provider circuit breakers trip and recover with shared Redis state.
-- [ ] Fallback walks the routing plan; `AllProvidersFailed` handled cleanly.
-- [ ] `arq` workers run health probes and usage rollups.
-- [ ] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
-- [ ] OpenAI compatibility intact — the Phase 1 compat gate still passes (no regression).
-- [ ] Docs (`ARCHITECTURE`, ADR-0005, `CLAUDE.md` §10) reflect reality.
+- [x] Rate limits enforced per key/org, atomic via Lua, `429` + `Retry-After`, fail-open on a Redis outage (per ADR-0005).
+- [x] Budgets enforced from real usage accounting; over-budget → correct OpenAI billing envelope; resets per period.
+- [x] Usage + cost persisted accurately for **both** unary and streaming.
+- [x] Retries bounded with backoff + jitter, on retryable errors only, never mid-stream.
+- [x] Per-provider circuit breakers trip and recover with shared Redis state.
+- [x] Fallback walks the routing plan; `AllProvidersFailed` handled cleanly.
+- [x] `arq` workers run health probes and usage rollups.
+- [x] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
+- [x] OpenAI compatibility intact — the Phase 1 compat gate still passes (no regression).
+- [x] Docs (`ARCHITECTURE`, ADR-0005, `CLAUDE.md` §10) reflect reality.

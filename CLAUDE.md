@@ -283,19 +283,22 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
-  on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
-  `v0.1.0`, and pushed.
-- **State:** Phase 2 Tasks 1-7 done — accounting, rate limiting, budgets, retry,
-  breaker, fallback, and workers. `arq` worker (`workers/`, `make worker`, compose
-  `worker` service) runs a per-provider health probe (feeds `ProviderHealthStore`
-  + breaker) and a usage-rollup job (→ `usage_rollup` daily aggregates); provider
-  health is surfaced at `GET /v1/admin/providers/health`. Worker boot smoke-tested
-  end-to-end. `make check` green (126 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 8 — pipeline integration + exit: confirm
-  the full §5 pipeline order, write ADR-0005 (reliability + Redis fail-safe),
-  update ARCHITECTURE + §10, add one end-to-end test exercising limit + budget +
-  retry + breaker + fallback + accounting together, then merge/tag `v0.2.0`/push.
+- **Active phase:** Phase 3 — Intelligent routing (`docs/phases/PHASE-03-ROUTING.md`).
+  Phases 1-2 are complete, merged, tagged (`v0.1.0`, `v0.2.0`), and pushed.
+- **State:** ✅ **Phase 2 (Reliability) complete** — every task + exit checklist in
+  `docs/phases/PHASE-02-RELIABILITY.md` ticked and the ROADMAP Phase 2 DoD holds.
+  Live: usage/cost accounting (`usage_record`), Redis token-bucket rate limits
+  (per key/org, `429`+`Retry-After`, fail-open), Postgres-backed budgets
+  (`429 insufficient_quota`), bounded retry (backoff+jitter, never mid-stream),
+  shared per-provider circuit breakers, automatic fallback across the routing
+  plan, and `arq` workers (health probes + usage rollups). Fail-safe posture in
+  **ADR-0005**. `make check` green (127 tests), compat gate intact.
+- **Immediate next action:** Begin Phase 3 — Intelligent routing. Per
+  `docs/phases/PHASE-03-ROUTING.md`: cost/latency/capability-aware strategies +
+  a declarative `PolicyStrategy`, all behind the existing `RoutingStrategy`
+  interface, recording the decision reason per request. **Invariant:** concrete
+  model names must keep routing exactly as in Phase 1 (no behaviour change for
+  today's requests). New ADR-0006.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

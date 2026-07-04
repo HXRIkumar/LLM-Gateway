@@ -207,9 +207,14 @@ flowchart TD
 - **V3:** `CostAware`, `LatencyAware`, `CapabilityAware`, and a `PolicyStrategy` that composes constraints (required capabilities, allow/deny lists) with preferences (minimize cost / latency) and fallbacks. ⚠️
 - Inputs available to a strategy: request features (size, requested capabilities, requested model), live signals (per-provider latency percentiles, health, breaker state from Redis), and durable policy (from Postgres). The chosen decision is recorded per request for later analysis.
 
-## 8. Reliability layer (V2)
+## 8. Reliability layer (V2) ✅ built
 
 Pure policies in `domain/reliability`; their runtime state lives in Redis via an infra adapter.
+Implemented in Phase 2; the fail-safe posture (rate limits + breaker fail **open** on a Redis
+outage; budgets are enforced from Postgres and stay strict) is fixed in **ADR-0005**. The
+gateway wires them in pipeline order: preflight (rate limit → budget) → route → execute
+(breaker → retry → fallback) → account (usage), with a per-provider health probe + usage
+rollups run by the `arq` worker.
 
 - **Retry** — bounded attempts, exponential backoff with jitter, only on errors classified retryable.
 - **Fallback** — on exhaustion or an open breaker, advance to the next entry in the routing decision's plan.
@@ -301,6 +306,7 @@ Recorded as ADRs in `docs/adr/`:
 - **ADR-0002** — Python 3.12 + FastAPI (async-first) over Go, for ecosystem fit and delivery speed, with the hot path isolated so it could be re-implemented later.
 - **ADR-0003** — a canonical OpenAI-compatible schema with provider adapters behind a protocol, rather than per-provider passthrough.
 - **ADR-0004** — Postgres as system of record + Redis for fast-path state, rather than one store for both.
+- **ADR-0005** — reliability layer (rate limit, budget, retry, breaker, fallback) + the Redis fail-safe posture: limits/breakers fail open, budgets stay strict on Postgres.
 
 ## 13. Risks & mitigations
 

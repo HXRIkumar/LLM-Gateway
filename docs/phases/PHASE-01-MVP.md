@@ -7,11 +7,11 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 ---
 
 ## Task 1 — Project skeleton & configuration
-- [ ] Create `src/conduit/` package with the module layout from `CLAUDE.md` §4 (empty `__init__.py` files; create sub-packages as later tasks need them).
-- [ ] `config.py`: `Settings` via `pydantic-settings`, prefix `CONDUIT_`, covering env, log level, host/port, `DATABASE_URL`, `REDIS_URL`, provider config (OpenAI key, Ollama base URL), bootstrap admin key. Sensible defaults for local dev.
-- [ ] `main.py`: FastAPI **app factory** + lifespan that constructs and tears down shared clients (DB engine, redis, httpx). No module-level singletons.
-- [ ] `infra/telemetry/logging.py`: structlog setup (JSON in prod, pretty in dev); request-id middleware in `api/middleware.py`.
-- [ ] Health endpoints: `GET /healthz` (liveness) and `GET /readyz` (checks DB + redis reachability).
+- [x] Create `src/conduit/` package with the module layout from `CLAUDE.md` §4 (empty `__init__.py` files; create sub-packages as later tasks need them).
+- [x] `config.py`: `Settings` via `pydantic-settings`, prefix `CONDUIT_`, covering env, log level, host/port, `DATABASE_URL`, `REDIS_URL`, provider config (OpenAI key, Ollama base URL), bootstrap admin key. Sensible defaults for local dev.
+- [x] `main.py`: FastAPI **app factory** + lifespan that constructs and tears down shared clients (DB engine, redis, httpx). No module-level singletons.
+- [x] `infra/telemetry/logging.py`: structlog setup (JSON in prod, pretty in dev); request-id middleware in `api/middleware.py`.
+- [x] Health endpoints: `GET /healthz` (liveness) and `GET /readyz` (checks DB + redis reachability).
 - **Accept:** `make dev` boots; `/healthz` returns 200; `/readyz` reflects real dependency state; `make check` green.
 
 ## Task 2 — Datastore foundation

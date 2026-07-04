@@ -284,12 +284,13 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Not started. Repository contains scaffolding docs and config only;
-  `src/` and `tests/` are not yet created.
-- **Immediate next action:** Bootstrap the project skeleton per Phase 1, Task 1
-  (project layout, `Settings`, app factory, health endpoint), then the
-  OpenAI-compatible `/v1/chat/completions` path with the OpenAI and Ollama
-  providers.
+- **State:** Task 1 complete — project skeleton, `Settings`, app factory +
+  lifespan (DB/redis/httpx shared clients), structlog + request-id middleware,
+  and `/healthz` + `/readyz` are in place with unit tests; `make check` green.
+- **Immediate next action:** Phase 1, Task 2 — datastore foundation: async
+  SQLAlchemy engine + session management, Alembic under `infra/db/alembic/`,
+  the first migration (`organization`, `api_key`), and integration tests on
+  testcontainers Postgres + Redis.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

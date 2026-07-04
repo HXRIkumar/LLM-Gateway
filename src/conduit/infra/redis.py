@@ -22,7 +22,10 @@ logger = structlog.get_logger(__name__)
 
 def create_redis_client(settings: Settings) -> Redis:
     """Build the shared async Redis client. Connects lazily on first command."""
-    return redis_from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+    client: Redis = redis_from_url(  # type: ignore[no-untyped-call]
+        settings.redis_url, encoding="utf-8", decode_responses=True
+    )
+    return client
 
 
 async def check_redis(client: Redis) -> bool:
@@ -180,3 +183,36 @@ class RedisCircuitBreaker:
             )
         except RedisError as exc:
             logger.warning("breaker record failed", error=exc.__class__.__name__)
+
+
+class ProviderHealthStore:
+    """Reads/writes per-provider health (``health:{provider}``) set by the probe worker."""
+
+    def __init__(self, client: Redis, ttl_seconds: int = 300) -> None:
+        self._client = client
+        self._ttl_seconds = ttl_seconds
+
+    async def set_health(
+        self, provider: str, healthy: bool, detail: str | None, now: float
+    ) -> None:
+        key = f"health:{provider}"
+        await self._client.hset(  # type: ignore[misc]
+            key,
+            mapping={
+                "healthy": "1" if healthy else "0",
+                "detail": detail or "",
+                "checked_at": str(now),
+            },
+        )
+        await self._client.expire(key, self._ttl_seconds)
+
+    async def get_health(self, provider: str) -> dict[str, object] | None:
+        data = await self._client.hgetall(f"health:{provider}")  # type: ignore[misc]
+        if not data:
+            return None
+        return {
+            "provider": provider,
+            "healthy": data.get("healthy") == "1",
+            "detail": data.get("detail") or None,
+            "checked_at": data.get("checked_at"),
+        }

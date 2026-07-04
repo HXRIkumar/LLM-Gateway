@@ -26,6 +26,21 @@ services:
       -b 0.0.0.0:8080 -w ${CONDUIT_WORKERS:-2}"
     restart: unless-stopped
 
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      CONDUIT_DATABASE_URL: postgresql+asyncpg://conduit:conduit@postgres:5432/conduit
+      CONDUIT_REDIS_URL: redis://redis:6379/0
+    command: ["arq", "conduit.workers.settings.WorkerSettings"]
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:

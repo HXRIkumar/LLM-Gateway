@@ -9,11 +9,11 @@ are stored only as a hash plus a lookup prefix; the plaintext never touches the 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from conduit.infra.db.base import Base
@@ -104,3 +104,17 @@ class Budget(Base):
     period: Mapped[str] = mapped_column(String(16), default=BudgetPeriod.MONTHLY)
     status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UsageRollup(Base):
+    """Per-org daily aggregate of the usage ledger (produced by the rollup worker)."""
+
+    __tablename__ = "usage_rollup"
+    __table_args__ = (UniqueConstraint("org_id", "day", name="uq_usage_rollup_org_id_day"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    day: Mapped[date] = mapped_column(Date)
+    request_count: Mapped[int] = mapped_column(default=0)
+    total_tokens: Mapped[int] = mapped_column(default=0)
+    total_cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))

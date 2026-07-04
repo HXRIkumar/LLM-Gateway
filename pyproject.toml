@@ -27,6 +27,7 @@ dependencies = [
     "redis>=5.0",
     "structlog>=24.1",
     "orjson>=3.10",
+    "arq>=0.28.0",
 ]
 
 [project.scripts]

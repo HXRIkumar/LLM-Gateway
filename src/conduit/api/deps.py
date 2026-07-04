@@ -22,7 +22,12 @@ from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
 from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
-from conduit.infra.redis import RedisCircuitBreaker, RedisRateLimiter, check_redis
+from conduit.infra.redis import (
+    ProviderHealthStore,
+    RedisCircuitBreaker,
+    RedisRateLimiter,
+    check_redis,
+)
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
@@ -129,6 +134,13 @@ def get_budget_service(sessionmaker: SessionmakerDep) -> BudgetService:
 
 
 BudgetServiceDep = Annotated[BudgetService, Depends(get_budget_service)]
+
+
+def get_health_store(redis: RedisDep) -> ProviderHealthStore:
+    return ProviderHealthStore(redis)
+
+
+HealthStoreDep = Annotated[ProviderHealthStore, Depends(get_health_store)]
 
 
 async def database_ready(engine: DbEngineDep) -> bool:

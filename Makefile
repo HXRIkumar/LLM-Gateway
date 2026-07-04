@@ -49,6 +49,10 @@ revision: ## Create a migration: make revision m="message"
 key: ## Mint an initial API key (admin CLI)
 	uv run conduit keys create
 
+.PHONY: worker
+worker: ## Run the arq background worker (health probes, usage rollups)
+	uv run arq conduit.workers.settings.WorkerSettings
+
 .PHONY: test
 test: ## Run all tests (unit + integration)
 	uv run coverage run -m pytest

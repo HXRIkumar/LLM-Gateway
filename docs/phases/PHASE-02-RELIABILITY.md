@@ -49,10 +49,10 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** integration test (`respx` + real Redis) — primary failing or breaker-open lands on the fallback per the plan; all-fail maps to a clean OpenAI-shaped `5xx`; the same canonical schema flows unchanged across the fallback; `make check` green.
 
 ## Task 7 — Health probes & `arq` workers
-- [ ] Introduce `arq` (Redis-native): worker settings + a `make worker` target.
-- [ ] `workers/`: a periodic per-provider **health probe** that feeds breaker/health state, and a **usage rollup** job (e.g. per-org daily aggregates) supporting budgets/reporting.
-- [ ] Surface per-provider health (via `/readyz` or an admin health endpoint).
-- **Accept:** integration test — a worker probe cycle updates health/breaker state in Redis; a rollup job aggregates `usage_record` rows correctly; `make check` green.
+- [x] Introduce `arq` (Redis-native): worker settings + a `make worker` target (+ a compose `worker` service).
+- [x] `workers/`: a periodic per-provider **health probe** that feeds breaker/health state, and a **usage rollup** job (per-org daily aggregates) supporting budgets/reporting.
+- [x] Surface per-provider health via an admin health endpoint (`GET /v1/admin/providers/health`).
+- **Accept:** integration test — a worker probe cycle updates health/breaker state in Redis; a rollup job aggregates `usage_record` rows correctly; `make check` green. (Worker boot smoke-tested end-to-end via `arq`.)
 
 ## Task 8 — Pipeline integration, docs & exit
 - [ ] Confirm the full pipeline order per `CLAUDE.md` §5: preflight (rate limit + budget) → route → execute (retry → breaker → fallback) → account (usage) — all seams now live, none pulled past their stage.

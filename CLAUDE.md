@@ -286,18 +286,16 @@ raw one-off invocation.
 - **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
   on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
   `v0.1.0`, and pushed.
-- **State:** Phase 2 Tasks 1-6 done — accounting, rate limiting, budgets, retry,
-  breaker, and automatic fallback. `domain/reliability/fallback.py` walks the
-  `RoutingDecision` plan (retryable/breaker-open → next target; terminal → raise;
-  exhaustion → `AllProvidersFailed`); the execute path integrates retry + breaker
-  + fallback (unary) and breaker + fallback-before-first-byte (streaming, never
-  retried mid-stream). `StaticStrategy` builds the plan from `CONDUIT_MODEL_
-  FALLBACKS`. Accounting records the actual serving target. `make check` green
-  (123 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 7 — health probes & arq workers: add
-  `arq`, `workers/` (periodic per-provider health probe feeding breaker/health
-  state + a usage-rollup job), a `make worker` target, and surface provider
-  health.
+- **State:** Phase 2 Tasks 1-7 done — accounting, rate limiting, budgets, retry,
+  breaker, fallback, and workers. `arq` worker (`workers/`, `make worker`, compose
+  `worker` service) runs a per-provider health probe (feeds `ProviderHealthStore`
+  + breaker) and a usage-rollup job (→ `usage_rollup` daily aggregates); provider
+  health is surfaced at `GET /v1/admin/providers/health`. Worker boot smoke-tested
+  end-to-end. `make check` green (126 tests), compat gate intact.
+- **Immediate next action:** Phase 2 Task 8 — pipeline integration + exit: confirm
+  the full §5 pipeline order, write ADR-0005 (reliability + Redis fail-safe),
+  update ARCHITECTURE + §10, add one end-to-end test exercising limit + budget +
+  retry + breaker + fallback + accounting together, then merge/tag `v0.2.0`/push.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

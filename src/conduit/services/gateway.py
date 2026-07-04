@@ -30,6 +30,7 @@ from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_async
 from conduit.domain.routing.classify import classify
+from conduit.domain.routing.policy import DEFAULT_POLICY, Policy
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy, RoutingTarget
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -41,6 +42,7 @@ from conduit.providers.base import Provider
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
+from conduit.services.policies import PolicyService
 from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
@@ -63,6 +65,7 @@ class Gateway:
         sleep: Callable[[float], Awaitable[None]] | None = None,
         rng: random.Random | None = None,
         breaker: CircuitBreaker | None = None,
+        policy_service: PolicyService | None = None,
     ) -> None:
         self._registry = registry
         self._routing = routing
@@ -75,6 +78,7 @@ class Gateway:
         self._sleep = sleep or asyncio.sleep
         self._rng = rng or random.Random()
         self._breaker = breaker
+        self._policy_service = policy_service
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
@@ -205,6 +209,7 @@ class Gateway:
         """Shared preflight + routing for both unary and streaming paths."""
         await self._preflight(request, principal)
         requirements = classify(request)  # classification seam (§5 step 3)
+        policy = await self._load_policy(principal)
         decision = self._routing.route(request)
         logger.info(
             "routed request",
@@ -212,11 +217,19 @@ class Gateway:
             model=decision.model,
             reason=decision.reason,
             key_prefix=principal.prefix,
+            objective=policy.objective,
             needs_tools=requirements.needs_tools,
             needs_vision=requirements.needs_vision,
             min_context=requirements.min_context,
         )
         return decision
+
+    async def _load_policy(self, principal: Principal) -> Policy:
+        if self._policy_service is None:
+            return DEFAULT_POLICY
+        return await self._policy_service.effective(
+            org_id=principal.org_id, api_key_id=principal.api_key_id
+        )
 
     async def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
         """Preflight policy: rate limits then budget."""

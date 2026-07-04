@@ -31,6 +31,7 @@ from conduit.infra.redis import (
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
+from conduit.services.policies import PolicyService
 from conduit.services.usage import UsageService
 
 
@@ -123,10 +124,18 @@ def get_gateway(
         budget=BudgetService(sessionmaker),
         retry_policy=retry_policy,
         breaker=breaker,
+        policy_service=PolicyService(sessionmaker),
     )
 
 
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
+
+
+def get_policy_service(sessionmaker: SessionmakerDep) -> PolicyService:
+    return PolicyService(sessionmaker)
+
+
+PolicyServiceDep = Annotated[PolicyService, Depends(get_policy_service)]
 
 
 def get_budget_service(sessionmaker: SessionmakerDep) -> BudgetService:

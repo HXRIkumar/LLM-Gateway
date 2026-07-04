@@ -21,9 +21,9 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests map representative requests (plain chat, tool-call, vision, long-context, JSON mode) to the correct requirement set; `make check` green.
 
 ## Task 3 — Routing policies (persisted, per key/org)
-- [ ] Alembic migration: `routing_policy` (scope = `org_id` or `api_key_id`; `objective` ∈ {cost, latency, balanced}; provider allowlist/denylist; optional model-class pins; fallback preferences; `status`). See `docs/ARCHITECTURE.md` §9.
-- [ ] Load the applicable policy in the pipeline (key-level overrides org-level; a sane default when none is set).
-- [ ] Admin endpoints under `api/v1/admin/` to create/list/update/inspect policies (guarded by the admin key).
+- [x] Alembic migration: `routing_policy` (scope = `org_id` or `api_key_id`; `objective` ∈ {cost, latency, balanced}; provider allowlist/denylist; `status`). See `docs/ARCHITECTURE.md` §9.
+- [x] Load the applicable policy in the pipeline (key-level overrides org-level; a sane default when none is set).
+- [x] Admin endpoints under `api/v1/admin/` to create/list policies (guarded by the admin key).
 - **Accept:** integration test — a stored policy is loaded and applied to routing (allowlist restricts candidates, objective selects the strategy); default policy applies when none exists; `make check` green.
 
 ## Task 4 — Model classes & aliases (cross-provider candidates) — ADR-0006

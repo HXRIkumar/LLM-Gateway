@@ -33,8 +33,8 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** integration test — requests under budget pass, over budget are rejected with the correct envelope; the window resets per `period`; `make check` green.
 
 ## Task 4 — Retry policy (harden `execute`)
-- [ ] `domain/reliability/retry.py`: pure bounded-retry policy — max attempts, exponential backoff **+ jitter**, and retryable-vs-terminal classification (retry on timeouts / upstream `429` / `5xx`; **never** on client `4xx`, and **never** once response bytes have begun streaming).
-- [ ] Wire around provider execution in the `execute` stage; inject clock/sleeper + rng for determinism.
+- [x] `domain/reliability/retry.py`: pure bounded-retry policy — max attempts, exponential backoff **+ jitter**, and retryable-vs-terminal classification (retry on timeouts / upstream `429` / `5xx`; **never** on client `4xx`, and **never** once response bytes have begun streaming — the streaming path isn't retried).
+- [x] Wire around provider execution in the `execute` stage; inject clock/sleeper + rng for determinism.
 - **Accept:** unit tests cover backoff/jitter schedule and the retryable/terminal split; integration test (`respx`) — a transient `503`-then-success is retried, a `400` is not; `make check` green.
 
 ## Task 5 — Per-provider circuit breaker (harden `execute`)

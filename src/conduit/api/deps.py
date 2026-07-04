@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
 from conduit.domain.reliability.ratelimit import RateLimit
+from conduit.domain.reliability.retry import RetryPolicy
 from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import RedisRateLimiter, check_redis
@@ -92,6 +93,11 @@ def get_gateway(
         org_limit = RateLimit(
             settings.rate_limit_per_org_requests, settings.rate_limit_per_org_window_seconds
         )
+    retry_policy = RetryPolicy(
+        max_attempts=settings.retry_max_attempts,
+        base_delay=settings.retry_base_delay_seconds,
+        max_delay=settings.retry_max_delay_seconds,
+    )
     return Gateway(
         registry,
         routing,
@@ -100,6 +106,7 @@ def get_gateway(
         key_limit=key_limit,
         org_limit=org_limit,
         budget=BudgetService(sessionmaker),
+        retry_policy=retry_policy,
     )
 
 

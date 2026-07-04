@@ -11,13 +11,16 @@ pipeline degrades to the Phase 1 behaviour, which keeps the domain testable.
 
 from __future__ import annotations
 
+import asyncio
+import random
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import structlog
 
 from conduit.domain.errors import BudgetExceeded, RateLimited
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
+from conduit.domain.reliability.retry import RetryPolicy, retry_async
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -25,6 +28,7 @@ from conduit.domain.schemas import (
     ChatCompletionResponse,
     Usage,
 )
+from conduit.providers.base import Provider
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
@@ -46,6 +50,9 @@ class Gateway:
         key_limit: RateLimit | None = None,
         org_limit: RateLimit | None = None,
         budget: BudgetService | None = None,
+        retry_policy: RetryPolicy | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
+        rng: random.Random | None = None,
     ) -> None:
         self._registry = registry
         self._routing = routing
@@ -54,6 +61,9 @@ class Gateway:
         self._key_limit = key_limit
         self._org_limit = org_limit
         self._budget = budget
+        self._retry_policy = retry_policy or RetryPolicy()
+        self._sleep = sleep or asyncio.sleep
+        self._rng = rng or random.Random()
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
@@ -61,12 +71,22 @@ class Gateway:
         decision = await self._plan(request, principal)
         provider = self._registry.get(decision.provider)
         start = time.perf_counter()
-        response = await provider.chat_completion(request)
+        response = await self._execute_unary(provider, request)
         latency_ms = int((time.perf_counter() - start) * 1000)
         await self._account(
             decision, principal, usage=response.usage, latency_ms=latency_ms, status="ok"
         )
         return response
+
+    async def _execute_unary(
+        self, provider: Provider, request: ChatCompletionRequest
+    ) -> ChatCompletionResponse:
+        """Execute a unary call under the retry policy (same provider, bounded)."""
+
+        async def call() -> ChatCompletionResponse:
+            return await provider.chat_completion(request)
+
+        return await retry_async(call, self._retry_policy, sleep=self._sleep, rng=self._rng)
 
     async def stream_chat_completion(
         self, request: ChatCompletionRequest, principal: Principal

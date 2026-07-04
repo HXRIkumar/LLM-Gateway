@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     rate_limit_per_org_requests: int = 600
     rate_limit_per_org_window_seconds: float = 60.0
 
+    # --- Retry (Phase 2) ---
+    retry_max_attempts: int = 3
+    retry_base_delay_seconds: float = 0.1
+    retry_max_delay_seconds: float = 5.0
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

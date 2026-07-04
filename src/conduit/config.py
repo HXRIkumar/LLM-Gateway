@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Ordered fallback model ids per requested model (each resolved via model_routes).
     # e.g. {"gpt-4o-mini": ["llama3.2"]}. Parsed from JSON via CONDUIT_MODEL_FALLBACKS.
     model_fallbacks: dict[str, list[str]] = Field(default_factory=dict)
+    # Logical aliases → ordered candidate model ids spanning providers (Phase 3).
+    # e.g. {"fast": ["gpt-4o-mini", "llama3.2"]}. Via CONDUIT_MODEL_ALIASES (JSON).
+    model_aliases: dict[str, list[str]] = Field(default_factory=dict)
 
     # --- Rate limiting (Phase 2) ---
     rate_limit_enabled: bool = True

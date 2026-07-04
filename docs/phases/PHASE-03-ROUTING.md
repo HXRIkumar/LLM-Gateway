@@ -27,8 +27,8 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** integration test — a stored policy is loaded and applied to routing (allowlist restricts candidates, objective selects the strategy); default policy applies when none exists; `make check` green.
 
 ## Task 4 — Model classes & aliases (cross-provider candidates) — ADR-0006
-- [ ] `domain/routing/classes.py`: resolve a requested `model` to an ordered candidate set. A concrete provider model name resolves to itself (deterministic, back-compat). A **logical class/alias** (e.g. `fast`, `balanced`, `frontier`) resolves to a configured, capability-ranked candidate set spanning providers.
-- [ ] Class/alias definitions come from config/DB, not hardcoded.
+- [x] `domain/routing/classes.py`: `ModelResolver` resolves a requested `model` to an ordered candidate set. A concrete provider model name resolves to itself (deterministic, back-compat). A **logical class/alias** (e.g. `fast`, `frontier`) resolves to a configured, ordered candidate set spanning providers (strategies rank by cost/latency in Tasks 5-7).
+- [x] Class/alias definitions come from config (`CONDUIT_MODEL_ALIASES`), not hardcoded.
 - **Accept:** unit tests — a concrete model → the exact same single candidate as Phase 1's static mapping; an alias → its ordered candidate set; an unknown model still yields the OpenAI-shaped `404` from Phase 1; `make check` green.
 
 ## Task 5 — Cost-optimized strategy

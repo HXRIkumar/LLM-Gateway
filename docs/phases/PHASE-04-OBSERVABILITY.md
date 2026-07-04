@@ -26,7 +26,7 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** integration test scrapes `/metrics`, asserts the key series exist and increment/observe correctly across a request (success + a forced upstream error), and asserts no unbounded labels; `make check` green.
 
 ## Task 4 — Provider & governance signals
-- [ ] Surface Phase 2/3 internals as telemetry: per-provider health, circuit-breaker state transitions, observed latency, and rate-limit/budget rejections — as both metrics (Task 3 series) and span events/attributes where relevant.
+- [x] Surface Phase 2/3 internals as telemetry: per-provider health, circuit-breaker state transitions, observed latency, and rate-limit/budget rejections — as both metrics (Task 3 series) and span events/attributes where relevant.
 - **Accept:** integration test — opening a breaker and hitting a rate limit/budget are reflected in the corresponding metric series and traces; `make check` green.
 
 ## Task 5 — OTel Collector + Prometheus + Grafana wiring

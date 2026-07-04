@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 import structlog
+from opentelemetry import trace
 from opentelemetry.trace import Tracer
 
 from conduit.domain.errors import (
@@ -173,6 +174,9 @@ class Gateway:
             obs.breaker_outcome = "open"
             if self._metrics is not None:
                 self._metrics.set_breaker_state(provider.name, "open")
+            trace.get_current_span().add_event(
+                "circuit_breaker.open", {"conduit.provider": provider.name}
+            )
             raise ProviderError(f"circuit breaker open for provider {provider.name!r}")
 
         local_attempts = 0
@@ -341,6 +345,7 @@ class Gateway:
         if decision is not None and not decision.allowed:
             if self._metrics is not None:
                 self._metrics.budget_rejections_total.inc()
+            trace.get_current_span().add_event("budget.rejected")
             raise BudgetExceeded("budget exceeded for the current period")
 
     async def _check_rate_limits(self, principal: Principal) -> None:
@@ -356,6 +361,9 @@ class Gateway:
             if not result.allowed:
                 if self._metrics is not None:
                     self._metrics.ratelimit_rejections_total.inc()
+                trace.get_current_span().add_event(
+                    "ratelimit.rejected", {"conduit.scope": scope.split(":", 1)[0]}
+                )
                 raise RateLimited("rate limit exceeded", retry_after=result.retry_after_seconds)
 
     async def _account(

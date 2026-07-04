@@ -37,7 +37,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** unit + integration tests — predicted cost is within a stated tolerance of the recorded actual for a known mocked completion; the estimate endpoint/header returns sane values; the standard chat contract is unchanged; `make check` green.
 
 ## Task 7 — Adaptive routing
-- [ ] Feed rolling cost/latency/error stats (P2 usage + P3 stats port + P4 metrics) back into routing so the balanced strategy adapts over time (e.g. de-weight a provider whose error rate or latency is climbing). Pure policy reading the stats port; an `arq` worker maintains the rolling aggregates.
+- [x] Feed rolling cost/latency/error stats (P2 usage + P3 stats port + P4 metrics) back into routing so the balanced strategy adapts over time (e.g. de-weight a provider whose error rate or latency is climbing). Pure policy reading the stats port; an `arq` worker maintains the rolling aggregates. *Latency was already fed in (P3); this adds an error-rate term to the balanced strategy via an `ErrorStats` port. The `refresh_route_stats` arq worker maintains rolling per-(provider,model) error rates in Redis; `RedisRouteStats` reads them at route time (fail-open → no adaptation on outage).*
 - **Accept:** integration test — after simulated degraded stats for a provider, the adaptive strategy shifts selection away from it; when stats recover, selection returns; `make check` green.
 
 ## Task 8 — Benchmarking harness

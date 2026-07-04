@@ -50,7 +50,7 @@ from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_as
 from conduit.domain.routing.classify import classify
 from conduit.domain.routing.engine import SmartRouter
 from conduit.domain.routing.policy import DEFAULT_POLICY, Policy
-from conduit.domain.routing.stats import LatencyStats
+from conduit.domain.routing.stats import ErrorStats, LatencyStats
 from conduit.domain.routing.strategy import RoutingDecision, RoutingTarget
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -111,6 +111,7 @@ class Gateway:
         breaker: CircuitBreaker | None = None,
         policy_service: PolicyService | None = None,
         stats: LatencyStats | None = None,
+        error_stats: ErrorStats | None = None,
         tracer: Tracer | None = None,
         metrics: Metrics | None = None,
         cache: ResponseCache | None = None,
@@ -133,6 +134,7 @@ class Gateway:
         self._breaker = breaker
         self._policy_service = policy_service
         self._stats = stats
+        self._error_stats = error_stats
         self._cache = cache
         self._single_flight = single_flight
         self._semantic = semantic
@@ -430,7 +432,8 @@ class Gateway:
             else:
                 policy = policy_override or await self._load_policy(principal)
                 snapshot = await self._latency_snapshot()
-                decision = self._router.route(request, requirements, policy, snapshot)
+                error_rates = await self._error_rate_snapshot()
+                decision = self._router.route(request, requirements, policy, snapshot, error_rates)
                 objective = policy.objective
             span.set_attribute("conduit.objective", objective)
             span.set_attribute("conduit.provider", decision.provider)
@@ -460,6 +463,11 @@ class Gateway:
         if self._stats is None:
             return {}
         return await self._stats.snapshot(self._router.catalog_targets())
+
+    async def _error_rate_snapshot(self) -> dict[tuple[str, str], float]:
+        if self._error_stats is None:
+            return {}
+        return await self._error_stats.error_rates(self._router.catalog_targets())
 
     async def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
         """Preflight policy: rate limits then budget."""

@@ -29,6 +29,7 @@ from conduit.infra.redis import (
     ProviderHealthStore,
     RedisCircuitBreaker,
     RedisRateLimiter,
+    RedisRouteStats,
     check_redis,
 )
 from conduit.infra.telemetry.metrics import Metrics
@@ -161,6 +162,7 @@ def get_gateway(
         breaker=breaker,
         policy_service=PolicyService(sessionmaker),
         stats=UsageLatencyStats(sessionmaker),
+        error_stats=RedisRouteStats(redis),
         tracer=tracer,
         metrics=metrics,
         cache=cache,

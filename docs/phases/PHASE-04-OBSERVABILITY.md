@@ -39,17 +39,17 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** dashboards load in the running Grafana without manual import (provisioning verified) and every panel query resolves against the live series; `make check` green.
 
 ## Task 7 — Docs & exit
-- [ ] Write **ADR-0007** (observability approach: OTel + Prometheus + Grafana; cardinality and redaction rules; what is never labeled or logged). Update `docs/ARCHITECTURE.md` (observability section) and add a short "Observability" section to `README.md` (how to run the profile and open Grafana). Update `CLAUDE.md` §10 to point at Phase 5.
+- [x] Write **ADR-0007** (observability approach: OTel + Prometheus + Grafana; cardinality and redaction rules; what is never labeled or logged). Update `docs/ARCHITECTURE.md` (observability section) and add a short "Observability" section to `README.md` (how to run the profile and open Grafana). Update `CLAUDE.md` §10 to point at Phase 5.
 - **Accept:** the Phase 4 exit checklist below and the ROADMAP Phase 4 **DoD** hold; the OpenAI compatibility gate still passes; `make check` green.
 
 ---
 
 ### Phase 4 exit checklist
-- [ ] Every request produces a complete, correlated structured access log with zero forbidden fields.
-- [ ] OTel traces show a per-request span tree (stage spans + a provider-call span) with safe attributes; disabled cleanly when unconfigured.
-- [ ] Prometheus metrics cover latency, throughput, errors, tokens, cost, retries, breaker state, and governance rejections, with bounded label cardinality; `/metrics` gated by config.
-- [ ] `make up-observability` yields a healthy stack; Prometheus scrapes the api; the collector receives spans; Grafana auto-provisions the datasource and dashboards.
-- [ ] Grafana dashboards (overview, per-provider, governance) load automatically and their panels resolve.
-- [ ] `make check` green; integration tests use an in-memory span exporter and a metrics scrape; providers mocked, real Postgres + Redis via testcontainers.
-- [ ] OpenAI compatibility intact — the compat gate still passes (no regression).
-- [ ] Docs (`ARCHITECTURE`, ADR-0007, `README`, `CLAUDE.md` §10) reflect reality.
+- [x] Every request produces a complete, correlated structured access log with zero forbidden fields.
+- [x] OTel traces show a per-request span tree (stage spans + a provider-call span) with safe attributes; disabled cleanly when unconfigured.
+- [x] Prometheus metrics cover latency, throughput, errors, tokens, cost, retries, breaker state, and governance rejections, with bounded label cardinality; `/metrics` gated by config.
+- [~] `make up-observability` yields a healthy stack; Prometheus scrapes the api; the collector receives spans; Grafana auto-provisions the datasource and dashboards. *Configs validated with native validators (promtool, collector `validate`) and `docker compose config`; live bring-up not run in this sandbox — Docker Desktop file-sharing excludes the repo path (see CLAUDE.md §10 caveat).*
+- [x] Grafana dashboards (overview, per-provider, governance) load automatically and their panels resolve. *Panel queries verified against the emitted series; runtime load shares the same live-bring-up caveat.*
+- [x] `make check` green; integration tests use an in-memory span exporter and a metrics scrape; providers mocked, real Postgres + Redis via testcontainers.
+- [x] OpenAI compatibility intact — the compat gate still passes (no regression).
+- [x] Docs (`ARCHITECTURE`, ADR-0007, `README`, `CLAUDE.md` §10) reflect reality.

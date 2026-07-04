@@ -33,3 +33,6 @@ htmlcov/
 # Local data / secrets
 *.local
 secrets/
+
+# Local Docker overrides (per-machine port remaps etc.)
+docker-compose.override.yml

@@ -20,6 +20,8 @@ from conduit.api import health
 from conduit.api.errors import register_exception_handlers
 from conduit.api.middleware import RequestContextMiddleware
 from conduit.api.v1 import chat, models
+from conduit.api.v1.admin import budgets as admin_budgets
+from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
 from conduit.config import Settings
 from conduit.domain.routing.engine import StaticStrategy
@@ -48,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.provider_registry = registry
     # Static routes: derived from advertised models, with config overrides on top.
     routes = {**registry.model_provider_map(), **settings.model_routes}
-    app.state.routing_strategy = StaticStrategy(routes)
+    app.state.routing_strategy = StaticStrategy(routes, fallbacks=settings.model_fallbacks)
 
     try:
         yield
@@ -78,6 +80,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(chat.router)
     app.include_router(models.router)
     app.include_router(admin_keys.router)
+    app.include_router(admin_budgets.router)
+    app.include_router(admin_health.router)
 
     return app
 

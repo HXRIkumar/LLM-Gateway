@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import os
+
+import pytest
 from pydantic import SecretStr
 
 from conduit.config import Settings
 
 
-def test_defaults_target_local_dev() -> None:
-    settings = Settings()
+def test_defaults_target_local_dev(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Hermetic: ignore any developer-local .env and ambient CONDUIT_* vars.
+    for var in [key for key in os.environ if key.startswith("CONDUIT_")]:
+        monkeypatch.delenv(var, raising=False)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.env == "development"
     assert settings.is_production is False
     assert settings.host == "0.0.0.0"

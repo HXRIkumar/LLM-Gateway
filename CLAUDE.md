@@ -283,26 +283,22 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 2 — Reliability (`docs/ROADMAP.md` §"Phase 2"). No
-  phase file exists yet under `docs/phases/`; write `PHASE-02-*.md` (mirroring the
-  Phase 1 task-list format) before starting, then work it top-to-bottom.
-- **State:** ✅ **Phase 1 (MVP) complete** — every task and the exit checklist in
-  `docs/phases/PHASE-01-MVP.md` are ticked and the ROADMAP Phase 1 DoD holds. The
-  gateway is OpenAI-compatible end-to-end: `POST /v1/chat/completions` (unary +
-  SSE streaming) and `GET /v1/models` over OpenAI + Ollama adapters behind a
-  static router; hashed API-key auth with admin endpoints + CLI; async
-  SQLAlchemy/Postgres + Redis; structlog + request-id; multi-stage Docker with
-  `make up` → healthy stack on :8080. `make check` green (78 tests: unit +
-  testcontainers integration + real-OpenAI-SDK compat gate). Phase-2+ concerns
-  (preflight/budget/limits, usage accounting, retry/breaker/fallback, intelligent
-  routing) exist as no-op seams — not pulled forward.
-- **Immediate next action:** Begin Phase 2 — Reliability. Per `docs/ROADMAP.md`:
-  Redis-backed token-bucket rate limits (per key/org, atomic via Lua), per-key/org
-  budgets, usage/cost accounting persisted to Postgres, bounded retries with
-  backoff+jitter, per-provider circuit breakers, health probes, automatic fallback
-  along the routing decision's plan, and `arq` background workers. Fill the
-  preflight/execute/account seams in `services/gateway.py`; do not start until a
-  `PHASE-02` task list + Definition of Done are written.
+- **Active phase:** Phase 3 — Intelligent routing (`docs/phases/PHASE-03-ROUTING.md`).
+  Phases 1-2 are complete, merged, tagged (`v0.1.0`, `v0.2.0`), and pushed.
+- **State:** ✅ **Phase 2 (Reliability) complete** — every task + exit checklist in
+  `docs/phases/PHASE-02-RELIABILITY.md` ticked and the ROADMAP Phase 2 DoD holds.
+  Live: usage/cost accounting (`usage_record`), Redis token-bucket rate limits
+  (per key/org, `429`+`Retry-After`, fail-open), Postgres-backed budgets
+  (`429 insufficient_quota`), bounded retry (backoff+jitter, never mid-stream),
+  shared per-provider circuit breakers, automatic fallback across the routing
+  plan, and `arq` workers (health probes + usage rollups). Fail-safe posture in
+  **ADR-0005**. `make check` green (127 tests), compat gate intact.
+- **Immediate next action:** Begin Phase 3 — Intelligent routing. Per
+  `docs/phases/PHASE-03-ROUTING.md`: cost/latency/capability-aware strategies +
+  a declarative `PolicyStrategy`, all behind the existing `RoutingStrategy`
+  interface, recording the decision reason per request. **Invariant:** concrete
+  model names must keep routing exactly as in Phase 1 (no behaviour change for
+  today's requests). New ADR-0006.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

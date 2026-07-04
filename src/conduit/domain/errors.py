@@ -49,6 +49,33 @@ class NotFound(ConduitError):
     error_type = "invalid_request_error"
 
 
+class RateLimited(ConduitError):
+    """The caller exceeded a gateway rate limit. Carries a retry-after hint."""
+
+    status_code = 429
+    error_type = "rate_limit_error"
+    default_code = "rate_limit_exceeded"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after: float | None = None,
+        param: str | None = None,
+        code: str | None = None,
+    ) -> None:
+        super().__init__(message, param=param, code=code)
+        self.retry_after = retry_after
+
+
+class BudgetExceeded(ConduitError):
+    """The org has exhausted its spend budget for the current period."""
+
+    status_code = 429
+    error_type = "insufficient_quota"
+    default_code = "insufficient_quota"
+
+
 class ModelNotFound(NotFound):
     """The requested model maps to no configured provider."""
 

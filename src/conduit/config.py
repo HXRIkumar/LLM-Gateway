@@ -55,6 +55,26 @@ class Settings(BaseSettings):
     # add or override them (e.g. {"gpt-4o-mini": "openai"}). Parsed from JSON when
     # set via CONDUIT_MODEL_ROUTES.
     model_routes: dict[str, str] = Field(default_factory=dict)
+    # Ordered fallback model ids per requested model (each resolved via model_routes).
+    # e.g. {"gpt-4o-mini": ["llama3.2"]}. Parsed from JSON via CONDUIT_MODEL_FALLBACKS.
+    model_fallbacks: dict[str, list[str]] = Field(default_factory=dict)
+
+    # --- Rate limiting (Phase 2) ---
+    rate_limit_enabled: bool = True
+    rate_limit_per_key_requests: int = 60
+    rate_limit_per_key_window_seconds: float = 60.0
+    rate_limit_per_org_requests: int = 600
+    rate_limit_per_org_window_seconds: float = 60.0
+
+    # --- Retry (Phase 2) ---
+    retry_max_attempts: int = 3
+    retry_base_delay_seconds: float = 0.1
+    retry_max_delay_seconds: float = 5.0
+
+    # --- Circuit breaker (Phase 2) ---
+    breaker_enabled: bool = True
+    breaker_failure_threshold: int = 5
+    breaker_cooldown_seconds: float = 30.0
 
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.

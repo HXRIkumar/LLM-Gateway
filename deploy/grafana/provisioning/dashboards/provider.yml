@@ -1,0 +1,12 @@
+# Grafana dashboard provider — auto-loads JSON dashboards from the mounted dir.
+apiVersion: 1
+providers:
+  - name: Conduit
+    orgId: 1
+    folder: Conduit
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

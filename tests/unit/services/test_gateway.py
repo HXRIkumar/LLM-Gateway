@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -22,8 +23,9 @@ class _RecordingUsage:
     def __init__(self) -> None:
         self.records: list[dict[str, Any]] = []
 
-    async def record(self, **kwargs: Any) -> None:
+    async def record(self, **kwargs: Any) -> Decimal:
         self.records.append(kwargs)
+        return Decimal("0")
 
 
 def _principal() -> Principal:

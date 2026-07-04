@@ -110,6 +110,28 @@ curl -s http://localhost:8080/v1/chat/completions \
 `make dev` runs the API against your own Postgres/Redis, and `make key` mints a
 key from the host.
 
+## Observability
+
+Conduit ships with the full observability stack behind a compose profile:
+
+```bash
+make up-observability   # api + postgres + redis + otel-collector + prometheus + grafana
+```
+
+- **Metrics** — the API exposes Prometheus metrics at `http://localhost:8080/metrics`
+  (gated by `CONDUIT_METRICS_ENABLED`, on by default). Prometheus scrapes it at
+  `http://localhost:9090`.
+- **Traces** — spans are exported over OTLP/HTTP to the OpenTelemetry Collector
+  (set `CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT`; unset = no-op). The bundled collector
+  logs received spans; point its exporter at Tempo/Jaeger for a real backend.
+- **Dashboards** — Grafana at `http://localhost:3000` (admin / admin) auto-provisions
+  the Prometheus datasource and three dashboards: **Gateway Overview**,
+  **Per-Provider**, and **Governance**.
+
+By design, secrets, API keys, and prompt/response bodies never appear in logs,
+spans, or metric labels, and metric label cardinality stays bounded — see
+[ADR-0007](docs/adr/0007-observability.md).
+
 ## Feature roadmap
 
 | Phase | Theme | Highlights |

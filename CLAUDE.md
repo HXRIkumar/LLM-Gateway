@@ -283,21 +283,39 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 4 — Observability (`docs/phases/PHASE-04-OBSERVABILITY.md`).
-  Phases 1-3 are complete, merged, tagged (`v0.1.0`, `v0.2.0`, `v0.3.0`), pushed.
-- **State:** ✅ **Phase 3 (Intelligent routing) complete** — every task + exit
-  checklist in `docs/phases/PHASE-03-ROUTING.md` ticked and the ROADMAP Phase 3
-  DoD holds. `SmartRouter` composes classify → resolve alias/classes → capability
-  + policy filter → cost/latency/balanced strategy → decision; concrete models
-  take a static fast path (byte-for-byte Phase 1, ADR-0006). Persisted per-key/org
-  policies (`routing_policy`), latency stats via a port over the usage ledger.
-  `make check` green (171 tests), compat gate intact.
-- **Immediate next action:** Begin Phase 4 — Observability. Per
-  `docs/phases/PHASE-04-OBSERVABILITY.md`: OpenTelemetry tracing, Prometheus
-  metrics (`/metrics`), Grafana dashboards as code, wired in `infra/telemetry` and
-  instrumented at `services/` boundaries — **never inside `domain/`**, and no
-  secrets/prompt bodies in spans/labels. New ADR-0007; fill `deploy/otel`,
-  `deploy/prometheus`, `deploy/grafana`.
+- **Active phase:** Phase 5 — Optimization (`docs/phases/PHASE-05-OPTIMIZATION.md`).
+  Phases 1-4 are complete, merged, tagged (`v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`),
+  pushed.
+- **State:** ✅ **Phase 4 (Observability) complete** — every task + exit checklist
+  in `docs/phases/PHASE-04-OBSERVABILITY.md` ticked and the ROADMAP Phase 4 DoD
+  holds. Structured `request.completed` access logs (no secrets/bodies);
+  OpenTelemetry tracing (root `gateway.chat_completion`/`stream_*` span +
+  `gateway.route` + per-attempt `provider.request`, span events for breaker/rate-
+  limit/budget), no-op when OTLP unset; Prometheus metrics on a per-app registry
+  scraped at `/metrics` (gated by `CONDUIT_METRICS_ENABLED`), low-cardinality
+  labels only; breaker + governance signals surfaced as metrics **and** span
+  events; `deploy/{otel,prometheus,grafana}` configs + three provisioned Grafana
+  dashboards. Instrumented at `services/` boundaries, never in `domain/`; tracer +
+  metrics injected (no global singletons). ADR-0007 records the approach and the
+  binding cardinality/redaction contract. `make check` green (179 tests), compat
+  gate intact.
+  - **Caveat (Phase 4 Task 5):** the live `make up-observability` bring-up was not
+    executed in this sandbox — Docker Desktop file-sharing excludes the repo path
+    (`/Users/hari/Downloads`), so bind-mounting `./deploy/*` config volumes fails
+    with "operation not permitted". Instead the configs were validated with their
+    native validators: `promtool check config` ✓, collector `validate` ✓, all
+    deploy YAML parses, and `docker compose config` resolves. Grafana panel queries
+    were verified to reference only series the gateway emits. To fully verify:
+    enable file sharing for the repo path (or move the repo under a shared path)
+    and run `make up-observability`, then confirm the Prometheus api target is `up`
+    and Grafana auto-loads the datasource + dashboards.
+- **Immediate next action:** Begin Phase 5 — Optimization. Per
+  `docs/phases/PHASE-05-OPTIMIZATION.md`: embeddings behind a mockable port,
+  semantic cache (byte-identical safe cases only — never tool/vision/non-
+  deterministic requests), dedup, replay, cost prediction, adaptive routing, and
+  benchmarking. New ADR-0008. Cache read/write wraps execute in `services/gateway`
+  (§5 step 6); providers/embeddings stay mockable; datastores real via
+  testcontainers; compat gate must stay green.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

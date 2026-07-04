@@ -14,8 +14,10 @@ services:
       # In-network service URLs override the localhost defaults in .env
       CONDUIT_DATABASE_URL: postgresql+asyncpg://conduit:conduit@postgres:5432/conduit
       CONDUIT_REDIS_URL: redis://redis:6379/0
-      # OTLP endpoint is only meaningful with the observability profile up
-      CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # OTLP endpoint is only meaningful with the observability profile up.
+      # The gateway uses the OTLP/HTTP exporter, so this is the collector's
+      # HTTP port (4318), not gRPC (4317).
+      CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     ports:
       - "8080:8080"
     # Run migrations, then start the server. Continuation lines stay at the same
@@ -102,6 +104,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafanadata:/var/lib/grafana
     ports:
       - "3000:3000"

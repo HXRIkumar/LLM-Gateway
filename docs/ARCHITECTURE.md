@@ -284,12 +284,30 @@ erDiagram
 
 Redis keyspace (ephemeral): `ratelimit:{scope}:{id}` (token bucket), `breaker:{provider}` (state + counters), `health:{provider}`, `cache:{hash}` and embedding index refs (V5). Nothing in Redis is a source of truth; on loss, limits/breakers reset to fail-safe defaults.
 
-## 10. Observability (V4)
+## 10. Observability (V4) ✅ built
 
-- **Tracing:** OpenTelemetry spans across edge → routing decision → provider call, exported via OTLP. Span attributes carry provider, model, decision reason, token counts, latency — **never** prompts, completions, keys, or credentials.
-- **Metrics:** Prometheus — RED metrics per route and per provider, token and cost counters, breaker/limit/health gauges — scraped from `/metrics`.
-- **Dashboards:** Grafana provisioned as code (compose profile): cost, latency (p50/p95/p99), token throughput, error analytics, and provider comparison.
-- **Logs:** structlog JSON in prod; correlated by request-id issued at the edge.
+Instrumented **only at the `services/` pipeline boundary** — `domain/` stays pure.
+The tracer and the metrics registry are injected (no global singletons), so tests
+use an in-memory span exporter and a private registry. See ADR-0007 for the full
+approach and the binding cardinality/redaction contract.
+
+- **Tracing:** OpenTelemetry. One root span per request (`gateway.chat_completion` /
+  `gateway.stream_chat_completion`) with a `gateway.route` child and a per-attempt
+  `provider.request` child; span events `circuit_breaker.open`,
+  `ratelimit.rejected`, `budget.rejected`. Exported via OTLP/HTTP to the collector
+  (no-op when `CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT` is unset). Attributes carry
+  provider, model, objective, attempt, token counts, status — **never** prompts,
+  completions, keys, or credentials.
+- **Metrics:** `prometheus-client` on a per-app registry, scraped from `/metrics`
+  (gated by `CONDUIT_METRICS_ENABLED`): `conduit_requests_total{provider,model,status}`,
+  request/upstream duration histograms, `conduit_tokens_total{direction}`,
+  `conduit_cost_usd_total`, `conduit_upstream_errors_total`, `conduit_retries_total`,
+  rate-limit/budget rejection counters, and the `conduit_circuit_breaker_state`
+  gauge. Labels are low-cardinality only — never per-key/per-user.
+- **Dashboards:** Grafana provisioned as code from `deploy/grafana/` (compose
+  `observability` profile): Gateway Overview, Per-Provider, and Governance.
+- **Logs:** structlog JSON in prod; one correlated `request.completed` access log
+  per request, keyed by the request-id issued at the edge.
 
 ## 11. Cross-cutting concerns
 

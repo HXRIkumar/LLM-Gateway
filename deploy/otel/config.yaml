@@ -1,0 +1,31 @@
+# OpenTelemetry Collector pipeline for Conduit.
+#
+# Receives OTLP spans from the gateway (HTTP on 4318, gRPC on 4317) and exports
+# them to the collector log (the "debug" exporter) so span flow is observable in
+# `docker compose logs otel-collector`. Metrics are NOT sent via OTLP — the
+# gateway exposes Prometheus metrics on its own /metrics endpoint, which
+# Prometheus scrapes directly (see deploy/prometheus/prometheus.yml).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: normal
+
+service:
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

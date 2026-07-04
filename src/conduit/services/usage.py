@@ -59,7 +59,7 @@ class UsageService:
         usage: Usage | None,
         latency_ms: int,
         status: str,
-    ) -> None:
+    ) -> Decimal:
         prompt = usage.prompt_tokens if usage else 0
         completion = usage.completion_tokens if usage else 0
         total = usage.total_tokens if usage else prompt + completion
@@ -80,3 +80,4 @@ class UsageService:
                 )
             )
             await session.commit()
+        return cost

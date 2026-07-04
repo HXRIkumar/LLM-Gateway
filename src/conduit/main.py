@@ -25,6 +25,7 @@ from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
 from conduit.api.v1.admin import policies as admin_policies
 from conduit.config import Settings
+from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.routing.catalog import Candidate, Catalog
 from conduit.domain.routing.classes import ModelResolver
 from conduit.domain.routing.engine import SmartRouter, StaticStrategy
@@ -67,6 +68,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     tracer_provider = configure_tracing(settings)  # None (no-op) when OTLP unset
     app.state.tracer = get_tracer(tracer_provider)
     app.state.metrics = Metrics()
+    # App-scoped single-flight: shared across per-request Gateway instances so
+    # concurrent identical cacheable requests collapse to one upstream call.
+    app.state.single_flight = SingleFlight()
 
     try:
         yield

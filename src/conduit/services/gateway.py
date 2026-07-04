@@ -37,6 +37,7 @@ from conduit.domain.optimize.cache import (
     is_cacheable,
     response_to_chunks,
 )
+from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
@@ -106,6 +107,7 @@ class Gateway:
         tracer: Tracer | None = None,
         metrics: Metrics | None = None,
         cache: ResponseCache | None = None,
+        single_flight: SingleFlight | None = None,
     ) -> None:
         self._registry = registry
         self._router = router
@@ -123,6 +125,7 @@ class Gateway:
         self._policy_service = policy_service
         self._stats = stats
         self._cache = cache
+        self._single_flight = single_flight
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
@@ -142,7 +145,13 @@ class Gateway:
             obs = _Observation()
             start = time.perf_counter()
             try:
-                response, target = await self._execute_with_fallback(request, decision, obs)
+                if key is not None and self._single_flight is not None:
+                    # Collapse concurrent identical cacheable requests into one call.
+                    response, target = await self._single_flight.do(
+                        key, lambda: self._execute_with_fallback(request, decision, obs)
+                    )
+                else:
+                    response, target = await self._execute_with_fallback(request, decision, obs)
             except ConduitError:
                 self._record_error(decision.provider, decision.model)
                 raise

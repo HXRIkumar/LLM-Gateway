@@ -97,8 +97,12 @@ async def test_non_cacheable_request_always_hits_provider(
                     return_value=httpx.Response(200, json=OPENAI_RESPONSE)
                 )
                 # temperature omitted → non-deterministic → never cached.
-                await client.post("/v1/chat/completions", headers=headers, json=_body(temperature=None))
-                await client.post("/v1/chat/completions", headers=headers, json=_body(temperature=None))
+                await client.post(
+                    "/v1/chat/completions", headers=headers, json=_body(temperature=None)
+                )
+                await client.post(
+                    "/v1/chat/completions", headers=headers, json=_body(temperature=None)
+                )
     assert route.call_count == 2
 
 
@@ -116,8 +120,12 @@ async def test_cache_control_no_store_bypasses_cache(postgres_url: str, redis_ur
                 route = respx.post(OPENAI_URL).mock(
                     return_value=httpx.Response(200, json=OPENAI_RESPONSE)
                 )
-                await client.post("/v1/chat/completions", headers=headers, json=_body(temperature=0))
-                await client.post("/v1/chat/completions", headers=headers, json=_body(temperature=0))
+                await client.post(
+                    "/v1/chat/completions", headers=headers, json=_body(temperature=0)
+                )
+                await client.post(
+                    "/v1/chat/completions", headers=headers, json=_body(temperature=0)
+                )
     assert route.call_count == 2  # bypass on both → provider every time
 
 

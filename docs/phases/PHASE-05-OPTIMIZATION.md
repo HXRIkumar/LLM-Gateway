@@ -16,7 +16,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test (real Redis + respx) — an identical cacheable request is served from cache with **no** upstream call; a non-cacheable or bypassed request always hits the provider; a cached streaming response replays with correct SSE framing and `[DONE]`; `make check` green.
 
 ## Task 2 — In-flight deduplication (single-flight)
-- [ ] Collapse concurrent identical cacheable requests into one upstream call; the rest await the shared result. Pure coordination policy in `domain/`, Redis lock/single-flight in `infra/`.
+- [x] Collapse concurrent identical cacheable requests into one upstream call; the rest await the shared result. Pure coordination policy in `domain/`, Redis lock/single-flight in `infra/`. *Implemented as an in-process asyncio single-flight (app-scoped, injected) rather than a Redis poll-lock — it gives exactly-one-call **and** clean failure-propagation-to-all-waiters, which a polling lock handles poorly. Cross-process concurrency is a documented non-goal for now (sequential cross-process repeats are absorbed by the shared cache); rationale in ADR-0008.*
 - **Accept:** integration test — N concurrent identical cacheable requests trigger exactly **one** upstream call (respx call-count assertion) and all callers receive the correct response; a failure is propagated to all waiters, not cached; `make check` green.
 
 ## Task 3 — Semantic cache (near-match) — ADR-0008

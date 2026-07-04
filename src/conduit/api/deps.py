@@ -18,6 +18,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
+from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
@@ -71,6 +72,10 @@ def get_metrics(request: Request) -> Metrics:
     return cast(Metrics, request.app.state.metrics)
 
 
+def get_single_flight(request: Request) -> SingleFlight:
+    return cast(SingleFlight, request.app.state.single_flight)
+
+
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
     """The session factory itself — for units of work that outlive the request
     (e.g. accounting at the end of a stream, after the request session closes)."""
@@ -92,6 +97,7 @@ ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)
 RouterDep = Annotated[SmartRouter, Depends(get_router)]
 TracerDep = Annotated[Tracer, Depends(get_tracer)]
 MetricsDep = Annotated[Metrics, Depends(get_metrics)]
+SingleFlightDep = Annotated[SingleFlight, Depends(get_single_flight)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
@@ -103,6 +109,7 @@ def get_gateway(
     settings: SettingsDep,
     tracer: TracerDep,
     metrics: MetricsDep,
+    single_flight: SingleFlightDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
     rate_limiter = None
@@ -148,6 +155,7 @@ def get_gateway(
         tracer=tracer,
         metrics=metrics,
         cache=cache,
+        single_flight=single_flight,
     )
 
 

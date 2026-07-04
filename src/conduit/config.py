@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     semantic_cache_max_entries: int = 500
     embedding_model: str = "text-embedding-3-small"
 
+    # --- Replay capture (Phase 5) ---
+    # Off by default: when on, the canonical request + response are stored for
+    # later replay. Never captures auth headers or credentials.
+    replay_capture_enabled: bool = False
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

@@ -36,6 +36,7 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
 from conduit.services.policies import PolicyService
+from conduit.services.replay import ReplayService
 from conduit.services.semantic import SemanticCache
 from conduit.services.stats import UsageLatencyStats
 from conduit.services.usage import UsageService
@@ -147,6 +148,7 @@ def get_gateway(
     cache = (
         RedisResponseCache(redis, settings.cache_ttl_seconds) if settings.cache_enabled else None
     )
+    replay = ReplayService(sessionmaker) if settings.replay_capture_enabled else None
     return Gateway(
         registry,
         router,
@@ -164,6 +166,7 @@ def get_gateway(
         cache=cache,
         single_flight=single_flight,
         semantic=semantic,
+        replay=replay,
     )
 
 

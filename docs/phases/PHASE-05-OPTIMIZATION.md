@@ -25,7 +25,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test with a **mocked** embedder — a paraphrase within threshold produces a semantic hit (no upstream call); below threshold misses; guarded request types never semantic-hit; `make check` green.
 
 ## Task 4 — Replay capture (opt-in)
-- [ ] Alembic migration: a `request_log` table (or an extension of `usage_record`) storing the canonical request + response in a replayable form, **off by default**, enabled per-key/org or globally by config, with the same redaction rules as logging.
+- [x] Alembic migration: a `request_log` table (or an extension of `usage_record`) storing the canonical request + response in a replayable form, **off by default**, enabled per-key/org or globally by config, with the same redaction rules as logging. *Global config gate (`CONDUIT_REPLAY_CAPTURE_ENABLED`); bodies stored for replay, never auth headers/credentials. Migration verified up/down/up on a throwaway Postgres.*
 - **Accept:** integration test — when enabled, a request is captured in replayable form; when disabled (default), nothing sensitive is stored; `make check` green.
 
 ## Task 5 — Replay mechanism

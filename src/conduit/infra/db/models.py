@@ -12,6 +12,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -140,6 +141,28 @@ class RoutingPolicy(Base):
     allow_providers: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     deny_providers: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RequestLog(Base):
+    """Opt-in replay store: the canonical request + response, for later replay.
+
+    Off by default (``CONDUIT_REPLAY_CAPTURE_ENABLED``). Stores the canonical
+    request and response bodies — that is the point of replay — but never the
+    Authorization header, gateway key plaintext, or upstream credentials.
+    """
+
+    __tablename__ = "request_log"
+    __table_args__ = (Index("ix_request_log_org_id_created_at", "org_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_key.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128))
+    request: Mapped[dict[str, Any]] = mapped_column(JSON)
+    response: Mapped[dict[str, Any]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16), default="ok")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

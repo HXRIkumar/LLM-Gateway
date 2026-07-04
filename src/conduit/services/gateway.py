@@ -60,6 +60,7 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
 from conduit.services.policies import PolicyService
+from conduit.services.replay import ReplayService
 from conduit.services.semantic import SemanticCache
 from conduit.services.usage import UsageService
 
@@ -110,6 +111,7 @@ class Gateway:
         cache: ResponseCache | None = None,
         single_flight: SingleFlight | None = None,
         semantic: SemanticCache | None = None,
+        replay: ReplayService | None = None,
     ) -> None:
         self._registry = registry
         self._router = router
@@ -129,6 +131,7 @@ class Gateway:
         self._cache = cache
         self._single_flight = single_flight
         self._semantic = semantic
+        self._replay = replay
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
@@ -189,6 +192,15 @@ class Gateway:
                 await self._cache.set(key, response)  # type: ignore[union-attr]
                 if self._semantic is not None and vector is not None:
                     await self._semantic.remember(key, vector)
+            if self._replay is not None:
+                await self._replay.capture(
+                    org_id=principal.org_id,
+                    api_key_id=principal.api_key_id,
+                    provider=target.provider,
+                    model=request.model,
+                    request=request,
+                    response=response,
+                )
             return response
 
     async def _execute_with_fallback(

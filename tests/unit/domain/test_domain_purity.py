@@ -23,6 +23,9 @@ FORBIDDEN = {
     "uvicorn",
     "gunicorn",
     "openai",
+    "opentelemetry",
+    "prometheus_client",
+    "arq",
 }
 
 

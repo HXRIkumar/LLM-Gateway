@@ -32,6 +32,7 @@ from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
 from conduit.infra.redis import create_redis_client
 from conduit.infra.telemetry.logging import configure_logging
+from conduit.infra.telemetry.tracing import configure_tracing, get_tracer
 from conduit.providers.registry import build_registry
 
 
@@ -62,12 +63,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.router = SmartRouter(static, resolver, catalog)
 
+    tracer_provider = configure_tracing(settings)  # None (no-op) when OTLP unset
+    app.state.tracer = get_tracer(tracer_provider)
+
     try:
         yield
     finally:
         await http_client.aclose()
         await redis_client.aclose()
         await engine.dispose()
+        if tracer_provider is not None:
+            tracer_provider.shutdown()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

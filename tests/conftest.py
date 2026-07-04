@@ -26,6 +26,13 @@ from conduit.domain.schemas import (
 from conduit.providers.base import HealthStatus, ModelInfo, ModelPricing
 
 
+@pytest.fixture(autouse=True)
+def _disable_otlp_export(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Tests must not attempt real OTLP export (a developer .env may set an
+    # endpoint). Empty string → tracing configures to a clean no-op.
+    monkeypatch.setenv("CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT", "")
+
+
 class FakeProvider:
     """An in-memory ``Provider`` for tests (no network)."""
 

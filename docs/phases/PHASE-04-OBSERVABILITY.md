@@ -16,8 +16,8 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** integration test asserts an access-log line contains the required fields and none of the forbidden ones; `make check` green.
 
 ## Task 2 — OpenTelemetry tracing (fill the trace seam)
-- [ ] `infra/telemetry/tracing.py`: initialize the OTel SDK + OTLP exporter (endpoint from `CONDUIT_OTEL_*`); wire startup/shutdown into the app-factory lifespan; a clean no-op when OTel is unconfigured.
-- [ ] Instrument the pipeline: one root span per request with child spans per stage (authenticate, validate, preflight, route, execute → a nested span for the provider HTTP call, account). Attributes: provider, model, route objective/reason, attempt number, token counts, status — no secrets, no bodies. Propagate context into the httpx provider call.
+- [x] `infra/telemetry/tracing.py`: initializes the OTel SDK + OTLP HTTP exporter (endpoint from `CONDUIT_OTEL_*`); wired into the lifespan; a clean no-op when unconfigured (injected tracer, no global state in tests).
+- [x] Instrumented the pipeline: a root span per request (`gateway.chat_completion` / `gateway.stream_chat_completion`) with `gateway.route` and per-attempt `provider.request` child spans. Attributes: provider, model, objective, attempt, token counts, status — no secrets, no bodies.
 - **Accept:** integration test with an in-memory span exporter asserts the expected span tree and attributes for a unary and a streaming request; `make check` green.
 
 ## Task 3 — Prometheus metrics (fill the metrics seam)

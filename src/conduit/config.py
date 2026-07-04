@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 30.0
 
+    # --- Observability (Phase 4) ---
+    # Tracing is enabled only when an OTLP endpoint is set; otherwise a clean no-op.
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_service_name: str = "conduit"
+    metrics_enabled: bool = True
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

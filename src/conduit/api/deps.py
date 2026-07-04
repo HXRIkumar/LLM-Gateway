@@ -13,6 +13,7 @@ from typing import Annotated, cast
 
 import httpx
 from fastapi import Depends, Request
+from opentelemetry.trace import Tracer
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -60,6 +61,10 @@ def get_router(request: Request) -> SmartRouter:
     return cast(SmartRouter, request.app.state.router)
 
 
+def get_tracer(request: Request) -> Tracer:
+    return cast(Tracer, request.app.state.tracer)
+
+
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
     """The session factory itself — for units of work that outlive the request
     (e.g. accounting at the end of a stream, after the request session closes)."""
@@ -79,6 +84,7 @@ RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 RouterDep = Annotated[SmartRouter, Depends(get_router)]
+TracerDep = Annotated[Tracer, Depends(get_tracer)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
@@ -88,6 +94,7 @@ def get_gateway(
     sessionmaker: SessionmakerDep,
     redis: RedisDep,
     settings: SettingsDep,
+    tracer: TracerDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
     rate_limiter = None
@@ -127,6 +134,7 @@ def get_gateway(
         breaker=breaker,
         policy_service=PolicyService(sessionmaker),
         stats=UsageLatencyStats(sessionmaker),
+        tracer=tracer,
     )
 
 

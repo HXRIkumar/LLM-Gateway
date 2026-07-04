@@ -134,11 +134,16 @@ class Gateway:
         self._replay = replay
 
     async def chat_completion(
-        self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
+        self,
+        request: ChatCompletionRequest,
+        principal: Principal,
+        *,
+        bypass_cache: bool = False,
+        policy_override: Policy | None = None,
     ) -> ChatCompletionResponse:
         with self._tracer.start_as_current_span("gateway.chat_completion") as span:
             span.set_attribute("conduit.request_model", request.model)
-            decision = await self._plan(request, principal)
+            decision = await self._plan(request, principal, policy_override)
 
             key = cache_key(request) if self._cacheable(request, bypass_cache) else None
             vector: list[float] | None = None
@@ -391,7 +396,12 @@ class Gateway:
 
     # --- stages -------------------------------------------------------------
 
-    async def _plan(self, request: ChatCompletionRequest, principal: Principal) -> RoutingDecision:
+    async def _plan(
+        self,
+        request: ChatCompletionRequest,
+        principal: Principal,
+        policy_override: Policy | None = None,
+    ) -> RoutingDecision:
         """Shared preflight + routing for both unary and streaming paths."""
         await self._preflight(request, principal)
         requirements = classify(request)  # classification seam (§5 step 3)
@@ -403,7 +413,7 @@ class Gateway:
                 decision = self._router.route(request, requirements, DEFAULT_POLICY, {})
                 objective = "static"
             else:
-                policy = await self._load_policy(principal)
+                policy = policy_override or await self._load_policy(principal)
                 snapshot = await self._latency_snapshot()
                 decision = self._router.route(request, requirements, policy, snapshot)
                 objective = policy.objective

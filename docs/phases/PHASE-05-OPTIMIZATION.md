@@ -29,7 +29,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test — when enabled, a request is captured in replayable form; when disabled (default), nothing sensitive is stored; `make check` green.
 
 ## Task 5 — Replay mechanism
-- [ ] A replay capability (CLI `conduit replay <id>` and/or an admin endpoint) that re-runs a captured request through the current gateway — optionally under a different policy — and returns a fresh response for comparison. Replays go through the normal pipeline.
+- [x] A replay capability (CLI `conduit replay <id>` and/or an admin endpoint) that re-runs a captured request through the current gateway — optionally under a different policy — and returns a fresh response for comparison. Replays go through the normal pipeline. *Admin endpoint `POST /v1/admin/replays/{id}` with an optional policy override; replays bypass the cache and go through the full pipeline (routing/reliability/accounting).*
 - **Accept:** integration test — a captured request replays and returns a well-formed response; replaying under a different routing policy selects a different provider; `make check` green.
 
 ## Task 6 — Cost prediction

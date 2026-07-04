@@ -187,6 +187,13 @@ def get_budget_service(sessionmaker: SessionmakerDep) -> BudgetService:
 BudgetServiceDep = Annotated[BudgetService, Depends(get_budget_service)]
 
 
+def get_replay_service(sessionmaker: SessionmakerDep) -> ReplayService:
+    return ReplayService(sessionmaker)
+
+
+ReplayServiceDep = Annotated[ReplayService, Depends(get_replay_service)]
+
+
 def get_health_store(redis: RedisDep) -> ProviderHealthStore:
     return ProviderHealthStore(redis)
 

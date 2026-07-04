@@ -24,6 +24,7 @@ from conduit.api.v1.admin import budgets as admin_budgets
 from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
 from conduit.api.v1.admin import policies as admin_policies
+from conduit.api.v1.admin import replays as admin_replays
 from conduit.config import Settings
 from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.routing.catalog import Candidate, Catalog
@@ -130,6 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_budgets.router)
     app.include_router(admin_health.router)
     app.include_router(admin_policies.router)
+    app.include_router(admin_replays.router)
 
     return app
 

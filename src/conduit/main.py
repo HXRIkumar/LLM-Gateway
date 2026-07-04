@@ -19,22 +19,28 @@ from conduit import __version__
 from conduit.api import health, metrics
 from conduit.api.errors import register_exception_handlers
 from conduit.api.middleware import RequestContextMiddleware
-from conduit.api.v1 import chat, models
+from conduit.api.v1 import chat, estimate, models
 from conduit.api.v1.admin import budgets as admin_budgets
 from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
 from conduit.api.v1.admin import policies as admin_policies
+from conduit.api.v1.admin import replays as admin_replays
 from conduit.config import Settings
+from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.routing.catalog import Candidate, Catalog
 from conduit.domain.routing.classes import ModelResolver
 from conduit.domain.routing.engine import SmartRouter, StaticStrategy
+from conduit.infra.cache import RedisResponseCache
 from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
+from conduit.infra.embeddings import OpenAIEmbedder
 from conduit.infra.redis import create_redis_client
 from conduit.infra.telemetry.logging import configure_logging
 from conduit.infra.telemetry.metrics import Metrics
 from conduit.infra.telemetry.tracing import configure_tracing, get_tracer
+from conduit.infra.vector import RedisVectorIndex
 from conduit.providers.registry import build_registry
+from conduit.services.semantic import SemanticCache
 
 
 @asynccontextmanager
@@ -67,6 +73,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     tracer_provider = configure_tracing(settings)  # None (no-op) when OTLP unset
     app.state.tracer = get_tracer(tracer_provider)
     app.state.metrics = Metrics()
+    # App-scoped single-flight: shared across per-request Gateway instances so
+    # concurrent identical cacheable requests collapse to one upstream call.
+    app.state.single_flight = SingleFlight()
+
+    # Semantic cache (opt-in; needs an embedding backend). App-scoped so the
+    # vector index and embedder are shared across per-request Gateway instances.
+    app.state.semantic_cache = None
+    if settings.semantic_cache_enabled and settings.openai_api_key is not None:
+        app.state.semantic_cache = SemanticCache(
+            OpenAIEmbedder(
+                http_client,
+                api_key=settings.openai_api_key.get_secret_value(),
+                base_url=settings.openai_base_url,
+                model=settings.embedding_model,
+            ),
+            RedisVectorIndex(
+                redis_client,
+                max_entries=settings.semantic_cache_max_entries,
+                ttl_seconds=settings.cache_ttl_seconds,
+            ),
+            RedisResponseCache(redis_client, settings.cache_ttl_seconds),
+            settings.semantic_cache_threshold,
+        )
 
     try:
         yield
@@ -97,11 +126,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(metrics.router)
     app.include_router(chat.router)
+    app.include_router(estimate.router)
     app.include_router(models.router)
     app.include_router(admin_keys.router)
     app.include_router(admin_budgets.router)
     app.include_router(admin_health.router)
     app.include_router(admin_policies.router)
+    app.include_router(admin_replays.router)
 
     return app
 

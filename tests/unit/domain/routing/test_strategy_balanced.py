@@ -46,3 +46,17 @@ def test_balanced_picks_the_compromise() -> None:
     ranked = rank_balanced([A, B, C], _request(), SNAPSHOT, BalancedWeights(cost=0.5, latency=0.5))
     # C is neither cheapest nor fastest but the best blend of the two.
     assert ranked[0].model.id == "C"
+
+
+def test_error_rate_deweights_a_degrading_provider() -> None:
+    weights = BalancedWeights(cost=1.0, latency=0.0, error=1.0)
+    # Cost alone ranks A first. A climbing error rate on A demotes it below C.
+    ranked = rank_balanced([A, B, C], _request(), SNAPSHOT, weights, error_rates={("A", "A"): 0.9})
+    assert ranked[0].model.id != "A"
+    assert "A" in [c.model.id for c in ranked]  # de-weighted, not dropped
+
+
+def test_empty_error_rates_leaves_ranking_unchanged() -> None:
+    weights = BalancedWeights(cost=1.0, latency=0.0, error=1.0)
+    ranked = rank_balanced([A, B, C], _request(), SNAPSHOT, weights, error_rates={})
+    assert [c.model.id for c in ranked] == ["A", "C", "B"]

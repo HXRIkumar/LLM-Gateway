@@ -18,15 +18,18 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
+from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
 from conduit.domain.routing.engine import SmartRouter
+from conduit.infra.cache import RedisResponseCache
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import (
     ProviderHealthStore,
     RedisCircuitBreaker,
     RedisRateLimiter,
+    RedisRouteStats,
     check_redis,
 )
 from conduit.infra.telemetry.metrics import Metrics
@@ -34,6 +37,8 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
 from conduit.services.policies import PolicyService
+from conduit.services.replay import ReplayService
+from conduit.services.semantic import SemanticCache
 from conduit.services.stats import UsageLatencyStats
 from conduit.services.usage import UsageService
 
@@ -70,6 +75,14 @@ def get_metrics(request: Request) -> Metrics:
     return cast(Metrics, request.app.state.metrics)
 
 
+def get_single_flight(request: Request) -> SingleFlight:
+    return cast(SingleFlight, request.app.state.single_flight)
+
+
+def get_semantic_cache(request: Request) -> SemanticCache | None:
+    return cast("SemanticCache | None", getattr(request.app.state, "semantic_cache", None))
+
+
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
     """The session factory itself — for units of work that outlive the request
     (e.g. accounting at the end of a stream, after the request session closes)."""
@@ -91,6 +104,8 @@ ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)
 RouterDep = Annotated[SmartRouter, Depends(get_router)]
 TracerDep = Annotated[Tracer, Depends(get_tracer)]
 MetricsDep = Annotated[Metrics, Depends(get_metrics)]
+SingleFlightDep = Annotated[SingleFlight, Depends(get_single_flight)]
+SemanticCacheDep = Annotated["SemanticCache | None", Depends(get_semantic_cache)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
@@ -102,6 +117,8 @@ def get_gateway(
     settings: SettingsDep,
     tracer: TracerDep,
     metrics: MetricsDep,
+    single_flight: SingleFlightDep,
+    semantic: SemanticCacheDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
     rate_limiter = None
@@ -129,6 +146,10 @@ def get_gateway(
                 cooldown_seconds=settings.breaker_cooldown_seconds,
             ),
         )
+    cache = (
+        RedisResponseCache(redis, settings.cache_ttl_seconds) if settings.cache_enabled else None
+    )
+    replay = ReplayService(sessionmaker) if settings.replay_capture_enabled else None
     return Gateway(
         registry,
         router,
@@ -141,8 +162,13 @@ def get_gateway(
         breaker=breaker,
         policy_service=PolicyService(sessionmaker),
         stats=UsageLatencyStats(sessionmaker),
+        error_stats=RedisRouteStats(redis),
         tracer=tracer,
         metrics=metrics,
+        cache=cache,
+        single_flight=single_flight,
+        semantic=semantic,
+        replay=replay,
     )
 
 
@@ -161,6 +187,13 @@ def get_budget_service(sessionmaker: SessionmakerDep) -> BudgetService:
 
 
 BudgetServiceDep = Annotated[BudgetService, Depends(get_budget_service)]
+
+
+def get_replay_service(sessionmaker: SessionmakerDep) -> ReplayService:
+    return ReplayService(sessionmaker)
+
+
+ReplayServiceDep = Annotated[ReplayService, Depends(get_replay_service)]
 
 
 def get_health_store(redis: RedisDep) -> ProviderHealthStore:

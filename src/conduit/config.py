@@ -85,6 +85,22 @@ class Settings(BaseSettings):
     otel_service_name: str = "conduit"
     metrics_enabled: bool = True
 
+    # --- Caching (Phase 5) ---
+    # Exact-match response cache: only deterministic (temperature==0), single-shaped
+    # requests are cached; a `Cache-Control: no-store` request header bypasses it.
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 3600
+    # Semantic (near-match) cache. Off by default — it needs an embedding backend.
+    semantic_cache_enabled: bool = False
+    semantic_cache_threshold: float = 0.95
+    semantic_cache_max_entries: int = 500
+    embedding_model: str = "text-embedding-3-small"
+
+    # --- Replay capture (Phase 5) ---
+    # Off by default: when on, the canonical request + response are stored for
+    # later replay. Never captures auth headers or credentials.
+    replay_capture_enabled: bool = False
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

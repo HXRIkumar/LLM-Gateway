@@ -29,7 +29,7 @@ Conduit is the control plane that owns all of it. Point your existing OpenAI cli
 - **Cost & governance** — API keys, token-bucket rate limits, per-key/org budgets, usage and cost accounting.
 - **Intelligent routing** — cost-, latency-, and capability-aware model selection behind declarative policies.
 - **Observable** — OpenTelemetry traces, Prometheus metrics, Grafana dashboards for cost, latency, tokens, and errors.
-- **Optimized** — semantic caching, request dedup and replay, token/cost estimation.
+- **Optimized** — exact + semantic response caching, in-flight dedup, opt-in replay, pre-flight cost estimation (`POST /v1/estimate`), error-rate adaptive routing, and a `conduit bench` harness.
 
 ## Architecture at a glance
 
@@ -131,6 +131,34 @@ make up-observability   # api + postgres + redis + otel-collector + prometheus +
 By design, secrets, API keys, and prompt/response bodies never appear in logs,
 spans, or metric labels, and metric label cardinality stays bounded — see
 [ADR-0007](docs/adr/0007-observability.md).
+
+## Optimization
+
+Conduit cuts cost and latency without any client change (all opt-in or transparent):
+
+- **Caching** — identical deterministic requests (`temperature == 0`, no tools/vision)
+  are served from Redis with no upstream call, for both unary and streaming;
+  `Cache-Control: no-store` bypasses. A **semantic** near-match cache (embedding +
+  vector index, off by default) serves paraphrases above a similarity threshold.
+- **In-flight dedup** — concurrent identical requests collapse into one upstream call.
+- **Cost prediction** — `POST /v1/estimate` returns the pre-flight cost of the chosen
+  route and alternatives (a Conduit extension; the chat contract is unchanged).
+- **Replay** — opt-in capture (`CONDUIT_REPLAY_CAPTURE_ENABLED`) + `POST /v1/admin/replays/{id}`
+  to re-run a captured request through the current pipeline, optionally under a
+  different routing policy.
+- **Adaptive routing** — the balanced strategy de-weights a provider whose error rate
+  is climbing and lets it recover, from worker-maintained rolling aggregates.
+- **Benchmarking** — `conduit bench` reports latency percentiles, throughput, cost,
+  and error rate across providers/models (mocked by default, `--live` for real):
+
+```
+PROVIDER   MODEL                    REQ   ERR%    p50ms    p95ms    p99ms     RPS      COST$
+ollama     llama3.2                  10   0.0%      2.5      2.6      2.6  1209.0   0.000000
+openai     gpt-4o-mini               10   0.0%      2.6      2.6      2.6  1271.0   0.000075
+```
+
+See [ADR-0008](docs/adr/0008-optimization.md) for the caching, dedup, semantic,
+replay-privacy, and adaptive-routing design.
 
 ## Feature roadmap
 

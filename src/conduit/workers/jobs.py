@@ -7,17 +7,22 @@ directly callable in tests with a hand-built ctx — no running worker needed.
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.infra.db.models import UsageRecord, UsageRollup
-from conduit.infra.redis import ProviderHealthStore
+from conduit.infra.redis import ProviderHealthStore, RedisRouteStats
 from conduit.providers.registry import ProviderRegistry
+
+# Rolling window and TTL for adaptive-routing error-rate aggregates.
+_ROUTE_STATS_WINDOW = timedelta(minutes=15)
+_ROUTE_STATS_TTL_SECONDS = 900
 
 logger = structlog.get_logger("conduit.worker")
 
@@ -36,6 +41,36 @@ async def probe_providers(ctx: dict[str, Any]) -> int:
             await breaker.record_failure(name)
         logger.info("provider health probe", provider=name, healthy=status.healthy)
     return len(names)
+
+
+async def refresh_route_stats(ctx: dict[str, Any]) -> int:
+    """Maintain rolling per-(provider, model) error rates for adaptive routing.
+
+    Computes the recent error rate from the usage ledger and writes it to Redis,
+    where the balanced router reads it to de-weight providers whose error rate is
+    climbing (and let them recover as the rate falls back).
+    """
+    sessionmaker: async_sessionmaker[AsyncSession] = ctx["sessionmaker"]
+    route_stats: RedisRouteStats = ctx["route_stats"]
+    since = datetime.now(UTC) - _ROUTE_STATS_WINDOW
+    errors = func.sum(case((UsageRecord.status != "ok", 1), else_=0))
+    async with sessionmaker() as session:
+        rows = (
+            await session.execute(
+                select(
+                    UsageRecord.provider,
+                    UsageRecord.model,
+                    func.count().label("total"),
+                    errors.label("errors"),
+                )
+                .where(UsageRecord.created_at >= since)
+                .group_by(UsageRecord.provider, UsageRecord.model)
+            )
+        ).all()
+    for provider, model, total, error_count in rows:
+        rate = (int(error_count) / int(total)) if total else 0.0
+        await route_stats.set_error_rate(provider, model, rate, _ROUTE_STATS_TTL_SECONDS)
+    return len(rows)
 
 
 async def rollup_usage(ctx: dict[str, Any]) -> int:

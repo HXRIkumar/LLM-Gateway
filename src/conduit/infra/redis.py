@@ -7,6 +7,7 @@ never a source of truth. The client is created once in the app lifespan.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 
 import structlog
 from redis.asyncio import Redis
@@ -183,6 +184,45 @@ class RedisCircuitBreaker:
             )
         except RedisError as exc:
             logger.warning("breaker record failed", error=exc.__class__.__name__)
+
+
+class RedisRouteStats:
+    """Rolling per-(provider, model) error rates for adaptive routing.
+
+    The worker writes ``routestats:{provider}:{model}`` (error rate 0..1); routing
+    reads them at route time. Fails open: a Redis outage yields no adaptation
+    signal (empty snapshot) rather than an error on the request path.
+    """
+
+    def __init__(self, client: Redis) -> None:
+        self._client = client
+
+    @staticmethod
+    def _key(provider: str, model: str) -> str:
+        return f"routestats:{provider}:{model}"
+
+    async def set_error_rate(
+        self, provider: str, model: str, error_rate: float, ttl_seconds: int
+    ) -> None:
+        await self._client.set(self._key(provider, model), str(error_rate), ex=ttl_seconds)
+
+    async def error_rates(self, targets: Sequence[tuple[str, str]]) -> dict[tuple[str, str], float]:
+        if not targets:
+            return {}
+        try:
+            raws = await self._client.mget([self._key(p, m) for p, m in targets])
+        except RedisError as exc:
+            logger.warning("route stats read failed; no adaptation", error=exc.__class__.__name__)
+            return {}
+        rates: dict[tuple[str, str], float] = {}
+        for (provider, model), raw in zip(targets, raws, strict=True):
+            if raw is None:
+                continue
+            try:
+                rates[(provider, model)] = float(raw)
+            except (TypeError, ValueError):
+                continue
+        return rates
 
 
 class ProviderHealthStore:

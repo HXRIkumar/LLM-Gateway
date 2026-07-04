@@ -14,7 +14,7 @@ from conduit.domain.errors import ModelNotFound
 from conduit.domain.routing.catalog import Candidate, Catalog, Requirements
 from conduit.domain.routing.classes import ModelResolver
 from conduit.domain.routing.policy import Policy
-from conduit.domain.routing.stats import LatencySnapshot
+from conduit.domain.routing.stats import ErrorRateSnapshot, LatencySnapshot
 from conduit.domain.routing.strategies.balanced import BalancedWeights, rank_balanced
 from conduit.domain.routing.strategies.cost import rank_by_cost
 from conduit.domain.routing.strategies.latency import rank_by_latency
@@ -70,12 +70,13 @@ def _rank_for_objective(
     request: ChatCompletionRequest,
     snapshot: LatencySnapshot,
     weights: BalancedWeights,
+    error_rates: ErrorRateSnapshot,
 ) -> list[Candidate]:
     if objective == "cost":
         return rank_by_cost(candidates, request)
     if objective == "latency":
         return rank_by_latency(candidates, snapshot)
-    return rank_balanced(candidates, request, snapshot, weights)
+    return rank_balanced(candidates, request, snapshot, weights, error_rates)
 
 
 class SmartRouter:
@@ -107,6 +108,7 @@ class SmartRouter:
         requirements: Requirements,
         policy: Policy,
         snapshot: LatencySnapshot,
+        error_rates: ErrorRateSnapshot | None = None,
     ) -> RoutingDecision:
         # Concrete model → static, byte-for-byte Phase 1/2 (incl. config fallbacks).
         if self._static.handles(request.model):
@@ -125,7 +127,9 @@ class SmartRouter:
             raise ModelNotFound(
                 f"no capable, permitted provider for model {request.model!r}", param="model"
             )
-        ranked = _rank_for_objective(policy.objective, capable, request, snapshot, self._weights)
+        ranked = _rank_for_objective(
+            policy.objective, capable, request, snapshot, self._weights, error_rates or {}
+        )
         primary, *rest = ranked
         return RoutingDecision(
             provider=primary.provider,

@@ -29,7 +29,11 @@ from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_async
-from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy, RoutingTarget
+from conduit.domain.routing.classify import classify
+from conduit.domain.routing.engine import SmartRouter
+from conduit.domain.routing.policy import DEFAULT_POLICY, Policy
+from conduit.domain.routing.stats import LatencyStats
+from conduit.domain.routing.strategy import RoutingDecision, RoutingTarget
 from conduit.domain.schemas import (
     ChatCompletionChunk,
     ChatCompletionRequest,
@@ -40,6 +44,7 @@ from conduit.providers.base import Provider
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
+from conduit.services.policies import PolicyService
 from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
@@ -51,7 +56,7 @@ class Gateway:
     def __init__(
         self,
         registry: ProviderRegistry,
-        routing: RoutingStrategy,
+        router: SmartRouter,
         usage: UsageService,
         *,
         rate_limiter: RateLimiter | None = None,
@@ -62,9 +67,11 @@ class Gateway:
         sleep: Callable[[float], Awaitable[None]] | None = None,
         rng: random.Random | None = None,
         breaker: CircuitBreaker | None = None,
+        policy_service: PolicyService | None = None,
+        stats: LatencyStats | None = None,
     ) -> None:
         self._registry = registry
-        self._routing = routing
+        self._router = router
         self._usage = usage
         self._rate_limiter = rate_limiter
         self._key_limit = key_limit
@@ -74,6 +81,8 @@ class Gateway:
         self._sleep = sleep or asyncio.sleep
         self._rng = rng or random.Random()
         self._breaker = breaker
+        self._policy_service = policy_service
+        self._stats = stats
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
@@ -203,15 +212,43 @@ class Gateway:
     async def _plan(self, request: ChatCompletionRequest, principal: Principal) -> RoutingDecision:
         """Shared preflight + routing for both unary and streaming paths."""
         await self._preflight(request, principal)
-        decision = self._routing.route(request)
+        requirements = classify(request)  # classification seam (§5 step 3)
+
+        # Concrete models take the static fast path — no policy/stats I/O, no
+        # behaviour change from Phase 1/2. Only aliases run smart routing.
+        if self._router.is_static(request.model):
+            decision = self._router.route(request, requirements, DEFAULT_POLICY, {})
+            objective = "static"
+        else:
+            policy = await self._load_policy(principal)
+            snapshot = await self._latency_snapshot()
+            decision = self._router.route(request, requirements, policy, snapshot)
+            objective = policy.objective
+
         logger.info(
             "routed request",
             provider=decision.provider,
             model=decision.model,
             reason=decision.reason,
             key_prefix=principal.prefix,
+            objective=objective,
+            needs_tools=requirements.needs_tools,
+            needs_vision=requirements.needs_vision,
+            min_context=requirements.min_context,
         )
         return decision
+
+    async def _load_policy(self, principal: Principal) -> Policy:
+        if self._policy_service is None:
+            return DEFAULT_POLICY
+        return await self._policy_service.effective(
+            org_id=principal.org_id, api_key_id=principal.api_key_id
+        )
+
+    async def _latency_snapshot(self) -> dict[tuple[str, str], float]:
+        if self._stats is None:
+            return {}
+        return await self._stats.snapshot(self._router.catalog_targets())
 
     async def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
         """Preflight policy: rate limits then budget."""

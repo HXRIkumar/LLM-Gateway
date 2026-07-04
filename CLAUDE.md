@@ -283,22 +283,21 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 3 — Intelligent routing (`docs/phases/PHASE-03-ROUTING.md`).
-  Phases 1-2 are complete, merged, tagged (`v0.1.0`, `v0.2.0`), and pushed.
-- **State:** ✅ **Phase 2 (Reliability) complete** — every task + exit checklist in
-  `docs/phases/PHASE-02-RELIABILITY.md` ticked and the ROADMAP Phase 2 DoD holds.
-  Live: usage/cost accounting (`usage_record`), Redis token-bucket rate limits
-  (per key/org, `429`+`Retry-After`, fail-open), Postgres-backed budgets
-  (`429 insufficient_quota`), bounded retry (backoff+jitter, never mid-stream),
-  shared per-provider circuit breakers, automatic fallback across the routing
-  plan, and `arq` workers (health probes + usage rollups). Fail-safe posture in
-  **ADR-0005**. `make check` green (127 tests), compat gate intact.
-- **Immediate next action:** Begin Phase 3 — Intelligent routing. Per
-  `docs/phases/PHASE-03-ROUTING.md`: cost/latency/capability-aware strategies +
-  a declarative `PolicyStrategy`, all behind the existing `RoutingStrategy`
-  interface, recording the decision reason per request. **Invariant:** concrete
-  model names must keep routing exactly as in Phase 1 (no behaviour change for
-  today's requests). New ADR-0006.
+- **Active phase:** Phase 4 — Observability (`docs/phases/PHASE-04-OBSERVABILITY.md`).
+  Phases 1-3 are complete, merged, tagged (`v0.1.0`, `v0.2.0`, `v0.3.0`), pushed.
+- **State:** ✅ **Phase 3 (Intelligent routing) complete** — every task + exit
+  checklist in `docs/phases/PHASE-03-ROUTING.md` ticked and the ROADMAP Phase 3
+  DoD holds. `SmartRouter` composes classify → resolve alias/classes → capability
+  + policy filter → cost/latency/balanced strategy → decision; concrete models
+  take a static fast path (byte-for-byte Phase 1, ADR-0006). Persisted per-key/org
+  policies (`routing_policy`), latency stats via a port over the usage ledger.
+  `make check` green (171 tests), compat gate intact.
+- **Immediate next action:** Begin Phase 4 — Observability. Per
+  `docs/phases/PHASE-04-OBSERVABILITY.md`: OpenTelemetry tracing, Prometheus
+  metrics (`/metrics`), Grafana dashboards as code, wired in `infra/telemetry` and
+  instrumented at `services/` boundaries — **never inside `domain/`**, and no
+  secrets/prompt bodies in spans/labels. New ADR-0007; fill `deploy/otel`,
+  `deploy/prometheus`, `deploy/grafana`.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

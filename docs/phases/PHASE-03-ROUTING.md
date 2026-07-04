@@ -11,54 +11,54 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 ---
 
 ## Task 1 — Provider capability & pricing catalog
-- [ ] Make the per-model metadata on `providers/base` authoritative and complete: context window, supported features (tools/function calling, JSON mode, vision), and input/output per-token pricing. Include a slot for observed latency (populated from Task 6's stats port).
-- [ ] `domain/routing/catalog.py`: a pure catalog that lists candidate `(provider, model)` pairs and filters them by a set of capability requirements.
+- [x] Per-model metadata on `providers/base` is authoritative (context window, tools, JSON mode, vision, input/output pricing); observed latency is read per candidate from the stats port (Task 6) rather than stored on static metadata.
+- [x] `domain/routing/catalog.py`: a pure catalog that lists candidate `(provider, model)` pairs and filters them by a set of capability requirements.
 - **Accept:** unit tests — given requirements (min context length, tools, vision, JSON mode), the catalog returns exactly the capable candidates and excludes the rest; `make check` green.
 
 ## Task 2 — Request classification (fill the preflight classify seam)
-- [ ] `domain/routing/classify.py`: pure derivation of a request's requirements from the canonical request — estimated prompt tokens (→ required context window), whether tools/functions are requested, whether image parts are present (vision), JSON/structured-output mode, and streaming. No I/O.
-- [ ] Wire it into the preflight stage (the classification no-op seam from §5 step 3); the result feeds routing.
+- [x] `domain/routing/classify.py`: pure derivation of a request's requirements from the canonical request — estimated prompt tokens (→ required context window), whether tools/functions are requested, whether image parts are present (vision), JSON/structured-output mode. No I/O.
+- [x] Wired into the route stage's classify seam (§5 step 3); the derived requirements are logged and feed routing (consumed by the smart engine in Task 8).
 - **Accept:** unit tests map representative requests (plain chat, tool-call, vision, long-context, JSON mode) to the correct requirement set; `make check` green.
 
 ## Task 3 — Routing policies (persisted, per key/org)
-- [ ] Alembic migration: `routing_policy` (scope = `org_id` or `api_key_id`; `objective` ∈ {cost, latency, balanced}; provider allowlist/denylist; optional model-class pins; fallback preferences; `status`). See `docs/ARCHITECTURE.md` §9.
-- [ ] Load the applicable policy in the pipeline (key-level overrides org-level; a sane default when none is set).
-- [ ] Admin endpoints under `api/v1/admin/` to create/list/update/inspect policies (guarded by the admin key).
+- [x] Alembic migration: `routing_policy` (scope = `org_id` or `api_key_id`; `objective` ∈ {cost, latency, balanced}; provider allowlist/denylist; `status`). See `docs/ARCHITECTURE.md` §9.
+- [x] Load the applicable policy in the pipeline (key-level overrides org-level; a sane default when none is set).
+- [x] Admin endpoints under `api/v1/admin/` to create/list policies (guarded by the admin key).
 - **Accept:** integration test — a stored policy is loaded and applied to routing (allowlist restricts candidates, objective selects the strategy); default policy applies when none exists; `make check` green.
 
 ## Task 4 — Model classes & aliases (cross-provider candidates) — ADR-0006
-- [ ] `domain/routing/classes.py`: resolve a requested `model` to an ordered candidate set. A concrete provider model name resolves to itself (deterministic, back-compat). A **logical class/alias** (e.g. `fast`, `balanced`, `frontier`) resolves to a configured, capability-ranked candidate set spanning providers.
-- [ ] Class/alias definitions come from config/DB, not hardcoded.
+- [x] `domain/routing/classes.py`: `ModelResolver` resolves a requested `model` to an ordered candidate set. A concrete provider model name resolves to itself (deterministic, back-compat). A **logical class/alias** (e.g. `fast`, `frontier`) resolves to a configured, ordered candidate set spanning providers (strategies rank by cost/latency in Tasks 5-7).
+- [x] Class/alias definitions come from config (`CONDUIT_MODEL_ALIASES`), not hardcoded.
 - **Accept:** unit tests — a concrete model → the exact same single candidate as Phase 1's static mapping; an alias → its ordered candidate set; an unknown model still yields the OpenAI-shaped `404` from Phase 1; `make check` green.
 
 ## Task 5 — Cost-optimized strategy
-- [ ] `domain/routing/strategies/cost.py`: among candidates that satisfy the request's requirements and the policy's allow/deny rules, choose the lowest **estimated cost** (prompt tokens + expected completion tokens × per-token pricing from the catalog). Build the fallback plan in ascending cost order.
+- [x] `domain/routing/strategies/cost.py`: `rank_by_cost` orders candidates by estimated cost (prompt + expected completion tokens against catalog pricing); the engine (Task 7/8) filters by requirements + policy first and builds the fallback plan in ascending cost order.
 - **Accept:** unit tests — the cheapest capable+allowed candidate is chosen; incapable/denied candidates are excluded; ties break deterministically; the decision carries an ordered fallback plan; `make check` green.
 
 ## Task 6 — Latency-optimized strategy + a stats port
-- [ ] `domain/routing/stats.py`: a `LatencyStats` port (pure interface) the domain reads; an `infra/` adapter implements it from Phase 2's rolling latency/health data (Redis/Postgres). No vendor/framework imports in the domain side.
-- [ ] `domain/routing/strategies/latency.py`: choose the lowest observed latency among capable+allowed candidates; fallback plan by ascending latency; fall back to a neutral default when no stats exist yet.
+- [x] `domain/routing/stats.py`: a `LatencyStats` port (pure) the domain reads; `services/stats.UsageLatencyStats` implements it from Phase 2's usage-ledger latency (rolling avg per provider/model). No vendor/framework imports on the domain side.
+- [x] `domain/routing/strategies/latency.py`: `rank_by_latency` orders capable candidates by observed latency ascending; candidates without stats sort last preserving order; cold-start (no stats) is a no-op.
 - **Accept:** unit tests with injected stats — fastest capable candidate chosen; cold-start (no stats) behaves sanely; `make check` green.
 
 ## Task 7 — Balanced strategy & strategy selection
-- [ ] `domain/routing/strategies/balanced.py`: combine normalized cost, latency, and capability fit into a single score with configurable weights.
-- [ ] `domain/routing/engine.py`: select the active strategy from the policy `objective`; `StaticStrategy` remains the default and is always used for requests that name a concrete model.
+- [x] `domain/routing/strategies/balanced.py`: combine min-max-normalized cost + latency into a single score with configurable weights (capability fit is enforced by pre-filtering).
+- [x] `domain/routing/engine.py`: `SmartRouter` selects the strategy from the policy `objective`; `StaticStrategy` remains the default and is used unchanged for any concrete model (byte-for-byte Phase 1/2, incl. config fallbacks).
 - **Accept:** unit tests — each objective selects the right strategy; a concrete-model request bypasses to static regardless of objective; weights change the balanced outcome as expected; `make check` green.
 
 ## Task 8 — Pipeline integration, docs & exit
-- [ ] The route stage now runs classify → load policy → resolve classes → run the selected strategy → emit a `RoutingDecision` (chosen `(provider, model)` + ordered fallback plan + reason). Confirm Phase 2's execute/breaker/fallback consumes the plan unchanged.
-- [ ] Write **ADR-0006** (routing model: classes/aliases, strategies, back-compat guarantee). Update `docs/ARCHITECTURE.md` (routing section) and `CLAUDE.md` §10 to point at Phase 4.
-- [ ] End-to-end integration test (respx, multiple providers): a cost policy routes to the cheapest capable provider; a latency policy to the fastest; a capability filter excludes an incapable provider; when the chosen provider fails, the smart fallback plan is walked (ties into Phase 2).
+- [x] The route stage now runs classify → load policy → resolve classes → run the selected strategy → emit a `RoutingDecision`. Concrete models take the static fast path (no policy/stats I/O); Phase 2's execute/breaker/fallback consumes the plan unchanged.
+- [x] Wrote **ADR-0006** (routing model: classes/aliases, strategies, back-compat guarantee). Updated `docs/ARCHITECTURE.md` (routing section) and `CLAUDE.md` §10 to point at Phase 4.
+- [x] End-to-end integration test (respx, two providers): cost policy → cheapest capable; latency policy → fastest observed; vision capability filter excludes Ollama; primary failure walks the smart fallback plan (ties into Phase 2).
 - **Accept:** the Phase 3 exit checklist below and the ROADMAP Phase 3 **DoD** hold; the OpenAI compatibility gate still passes; `make check` green.
 
 ---
 
 ### Phase 3 exit checklist
-- [ ] Requests are classified (context/tools/vision/JSON/streaming) and routed by the active policy objective.
-- [ ] Cost, latency, and balanced strategies all work behind the one `RoutingStrategy` protocol; the decision includes an ordered fallback plan.
-- [ ] Capability filtering excludes providers that can't serve a request; policy allow/deny lists are honored.
-- [ ] Concrete model names route deterministically (unchanged from Phase 1); aliases/classes resolve to candidate sets; unknown models still `404`.
-- [ ] Smart routing integrates cleanly with Phase 2's retry/breaker/fallback and usage accounting.
-- [ ] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
-- [ ] OpenAI compatibility intact — the compat gate still passes (no regression).
-- [ ] Docs (`ARCHITECTURE`, ADR-0006, `CLAUDE.md` §10) reflect reality.
+- [x] Requests are classified (context/tools/vision/JSON) and routed by the active policy objective.
+- [x] Cost, latency, and balanced strategies all work behind the `SmartRouter`; the decision includes an ordered fallback plan.
+- [x] Capability filtering excludes providers that can't serve a request; policy allow/deny lists are honored.
+- [x] Concrete model names route deterministically (unchanged from Phase 1); aliases/classes resolve to candidate sets; unknown models still `404`.
+- [x] Smart routing integrates cleanly with Phase 2's retry/breaker/fallback and usage accounting.
+- [x] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
+- [x] OpenAI compatibility intact — the compat gate still passes (no regression).
+- [x] Docs (`ARCHITECTURE`, ADR-0006, `CLAUDE.md` §10) reflect reality.

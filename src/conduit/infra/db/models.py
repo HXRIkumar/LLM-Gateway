@@ -13,7 +13,17 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from conduit.infra.db.base import Base
@@ -102,6 +112,33 @@ class Budget(Base):
     )
     limit_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
     period: Mapped[str] = mapped_column(String(16), default=BudgetPeriod.MONTHLY)
+    status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RoutingObjective(StrEnum):
+    """How the router picks among capable candidates."""
+
+    COST = "cost"
+    LATENCY = "latency"
+    BALANCED = "balanced"
+
+
+class RoutingPolicy(Base):
+    """A per-org or per-key routing policy (exactly one scope column is set)."""
+
+    __tablename__ = "routing_policy"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organization.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("api_key.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    objective: Mapped[str] = mapped_column(String(16), default=RoutingObjective.BALANCED)
+    allow_providers: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    deny_providers: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

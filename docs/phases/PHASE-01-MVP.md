@@ -58,7 +58,7 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** a non-streaming chat request succeeds against both OpenAI and Ollama (mocked) by changing only `model`; malformed input → OpenAI-shaped `400`; `make check` green.
 
 ## Task 10 — Streaming
-- [ ] Streaming path through the pipeline and adapters: `POST /v1/chat/completions` with `stream: true` returns SSE `chat.completion.chunk` events terminated by `data: [DONE]`.
+- [x] Streaming path through the pipeline and adapters: `POST /v1/chat/completions` with `stream: true` returns SSE `chat.completion.chunk` events terminated by `data: [DONE]`.
 - **Accept:** integration test asserts correct SSE framing and termination for both providers (mocked); `make check` green.
 
 ## Task 11 — Containerization & one-command run

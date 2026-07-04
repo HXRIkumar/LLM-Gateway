@@ -16,8 +16,8 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests — given requirements (min context length, tools, vision, JSON mode), the catalog returns exactly the capable candidates and excludes the rest; `make check` green.
 
 ## Task 2 — Request classification (fill the preflight classify seam)
-- [ ] `domain/routing/classify.py`: pure derivation of a request's requirements from the canonical request — estimated prompt tokens (→ required context window), whether tools/functions are requested, whether image parts are present (vision), JSON/structured-output mode, and streaming. No I/O.
-- [ ] Wire it into the preflight stage (the classification no-op seam from §5 step 3); the result feeds routing.
+- [x] `domain/routing/classify.py`: pure derivation of a request's requirements from the canonical request — estimated prompt tokens (→ required context window), whether tools/functions are requested, whether image parts are present (vision), JSON/structured-output mode. No I/O.
+- [x] Wired into the route stage's classify seam (§5 step 3); the derived requirements are logged and feed routing (consumed by the smart engine in Task 8).
 - **Accept:** unit tests map representative requests (plain chat, tool-call, vision, long-context, JSON mode) to the correct requirement set; `make check` green.
 
 ## Task 3 — Routing policies (persisted, per key/org)

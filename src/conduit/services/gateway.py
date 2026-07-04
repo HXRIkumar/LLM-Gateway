@@ -29,6 +29,7 @@ from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_async
+from conduit.domain.routing.classify import classify
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy, RoutingTarget
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -203,6 +204,7 @@ class Gateway:
     async def _plan(self, request: ChatCompletionRequest, principal: Principal) -> RoutingDecision:
         """Shared preflight + routing for both unary and streaming paths."""
         await self._preflight(request, principal)
+        requirements = classify(request)  # classification seam (§5 step 3)
         decision = self._routing.route(request)
         logger.info(
             "routed request",
@@ -210,6 +212,9 @@ class Gateway:
             model=decision.model,
             reason=decision.reason,
             key_prefix=principal.prefix,
+            needs_tools=requirements.needs_tools,
+            needs_vision=requirements.needs_vision,
+            min_context=requirements.min_context,
         )
         return decision
 

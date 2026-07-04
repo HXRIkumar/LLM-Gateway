@@ -15,6 +15,7 @@ import httpx
 from conduit.config import Settings
 from conduit.domain.errors import ProviderError
 from conduit.providers.base import ModelInfo, Provider
+from conduit.providers.ollama import build_ollama_provider
 from conduit.providers.openai import build_openai_provider
 
 # A factory builds a provider from settings and the shared outbound HTTP client.
@@ -24,6 +25,7 @@ ProviderFactory = Callable[[Settings, httpx.AsyncClient], Provider]
 # here (ADR-0003).
 BUILTIN_PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "openai": build_openai_provider,
+    "ollama": build_ollama_provider,
 }
 
 

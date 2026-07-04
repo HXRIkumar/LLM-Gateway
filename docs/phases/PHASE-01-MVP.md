@@ -36,7 +36,7 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** `respx`-mocked tests cover success, 400/401/429/5xx mapping, timeouts, and a streamed response; `make check` green.
 
 ## Task 6 — Ollama provider adapter
-- [ ] `providers/ollama.py`: canonical ⇄ Ollama translation (unary + streaming); error mapping; base URL from settings.
+- [x] `providers/ollama.py`: canonical ⇄ Ollama translation (unary + streaming); error mapping; base URL from settings.
 - **Accept:** `respx`-mocked tests mirror Task 5 for Ollama's API shape; the same canonical schema works unchanged across both providers; `make check` green.
 
 ## Task 7 — Static routing seam

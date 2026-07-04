@@ -18,11 +18,12 @@ services:
       CONDUIT_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     ports:
       - "8080:8080"
-    # Run migrations, then start the server.
+    # Run migrations, then start the server. Continuation lines stay at the same
+    # indentation so the folded scalar collapses to a single shell command.
     command: >
       sh -c "alembic upgrade head &&
-             gunicorn conduit.main:app -k uvicorn.workers.UvicornWorker
-             -b 0.0.0.0:8080 -w ${CONDUIT_WORKERS:-2}"
+      gunicorn conduit.main:app -k uvicorn.workers.UvicornWorker
+      -b 0.0.0.0:8080 -w ${CONDUIT_WORKERS:-2}"
     restart: unless-stopped
 
   postgres:

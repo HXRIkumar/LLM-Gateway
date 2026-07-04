@@ -51,26 +51,64 @@ Conduit uses a hexagonal design: a thin FastAPI edge, an orchestration pipeline,
 
 ## Quickstart
 
-> Filled in at the end of the MVP (Phase 1, Task 12) with the exact, verified commands. Target flow:
+**Prerequisites:** Docker (with Compose) — and at least one upstream to route to:
+an OpenAI API key, or a local [Ollama](https://ollama.com) with a model pulled.
 
 ```bash
 git clone <repo> && cd conduit
-cp .env.example .env          # add your provider keys
-make up                       # api + postgres + redis on :8080
-# mint an API key
-make key
+cp .env.example .env
 ```
+
+Edit `.env` and point Conduit at an upstream:
+
+- **OpenAI:** set `CONDUIT_OPENAI_API_KEY=sk-...` (models `gpt-4o`, `gpt-4o-mini`).
+- **Ollama:** run `ollama serve` and `ollama pull llama3.2`, then set
+  `CONDUIT_OLLAMA_BASE_URL=http://host.docker.internal:11434` (models `llama3.2`,
+  `llama3.1`, `qwen2.5`).
+
+Bring up the stack (API + Postgres + Redis) and mint a key:
+
+```bash
+make up                                        # builds + starts; API on :8080
+curl -s localhost:8080/healthz                 # -> {"status":"ok"}
+curl -s localhost:8080/readyz                  # -> dependencies all "ok"
+docker compose exec api conduit keys create    # prints a ck-... key ONCE — save it
+```
+
+Point a stock OpenAI client at Conduit — only the `base_url` changes:
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="<your-conduit-key>")
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="ck-your-conduit-key")
+
 resp = client.chat.completions.create(
-    model="gpt-4o-mini",           # or an Ollama model — Conduit routes it
+    model="gpt-4o-mini",              # or "llama3.2" — Conduit routes by model
     messages=[{"role": "user", "content": "Hello from Conduit"}],
 )
 print(resp.choices[0].message.content)
+
+# Streaming works the same way:
+for chunk in client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Stream it"}],
+    stream=True,
+):
+    print(chunk.choices[0].delta.content or "", end="")
 ```
+
+Or with `curl`:
+
+```bash
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer ck-your-conduit-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+`make down` stops the stack. Working locally without Docker? `make install` then
+`make dev` runs the API against your own Postgres/Redis, and `make key` mints a
+key from the host.
 
 ## Feature roadmap
 

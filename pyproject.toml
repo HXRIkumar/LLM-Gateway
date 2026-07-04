@@ -94,7 +94,9 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "-ra -q"
+# importlib mode: unique module names per path, so same-basename test files in
+# different directories (e.g. unit vs integration) don't collide.
+addopts = "-ra -q --import-mode=importlib"
 markers = [
     "integration: tests that require Postgres/Redis via testcontainers",
     "compat: OpenAI-SDK compatibility tests",

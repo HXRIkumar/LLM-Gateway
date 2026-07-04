@@ -283,13 +283,26 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Not started. Repository contains scaffolding docs and config only;
-  `src/` and `tests/` are not yet created.
-- **Immediate next action:** Bootstrap the project skeleton per Phase 1, Task 1
-  (project layout, `Settings`, app factory, health endpoint), then the
-  OpenAI-compatible `/v1/chat/completions` path with the OpenAI and Ollama
-  providers.
+- **Active phase:** Phase 2 — Reliability (`docs/ROADMAP.md` §"Phase 2"). No
+  phase file exists yet under `docs/phases/`; write `PHASE-02-*.md` (mirroring the
+  Phase 1 task-list format) before starting, then work it top-to-bottom.
+- **State:** ✅ **Phase 1 (MVP) complete** — every task and the exit checklist in
+  `docs/phases/PHASE-01-MVP.md` are ticked and the ROADMAP Phase 1 DoD holds. The
+  gateway is OpenAI-compatible end-to-end: `POST /v1/chat/completions` (unary +
+  SSE streaming) and `GET /v1/models` over OpenAI + Ollama adapters behind a
+  static router; hashed API-key auth with admin endpoints + CLI; async
+  SQLAlchemy/Postgres + Redis; structlog + request-id; multi-stage Docker with
+  `make up` → healthy stack on :8080. `make check` green (78 tests: unit +
+  testcontainers integration + real-OpenAI-SDK compat gate). Phase-2+ concerns
+  (preflight/budget/limits, usage accounting, retry/breaker/fallback, intelligent
+  routing) exist as no-op seams — not pulled forward.
+- **Immediate next action:** Begin Phase 2 — Reliability. Per `docs/ROADMAP.md`:
+  Redis-backed token-bucket rate limits (per key/org, atomic via Lua), per-key/org
+  budgets, usage/cost accounting persisted to Postgres, bounded retries with
+  backoff+jitter, per-provider circuit breakers, health probes, automatic fallback
+  along the routing decision's plan, and `arq` background workers. Fill the
+  preflight/execute/account seams in `services/gateway.py`; do not start until a
+  `PHASE-02` task list + Definition of Done are written.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

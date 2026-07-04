@@ -18,7 +18,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev || \
     uv sync --no-install-project --no-dev
 
+# README.md is referenced by pyproject (readme = ...); it must exist to build the wheel.
 COPY src ./src
+COPY README.md ./README.md
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev || uv sync --no-dev
 

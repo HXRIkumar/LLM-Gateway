@@ -26,10 +26,10 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** integration test on real Redis (testcontainers) — bucket admits N then `429`s, refills over time, stays atomic under concurrent calls; `make check` green.
 
 ## Task 3 — Budgets (preflight)
-- [ ] Alembic migration: `budget` (scope = `org_id` or `api_key_id`, `limit_usd`, `period` [daily/monthly/rolling], `status`). See `docs/ARCHITECTURE.md` §9.
-- [ ] `services/budgets.py` (+ a pure check in `domain/`): compare accumulated spend (from Task 1's `usage_record`, the Postgres system of record) against the budget for the current period.
-- [ ] Wire into gateway **preflight**; over-budget → OpenAI-shaped billing error (`429`, type `insufficient_quota`). Fail-safe posture recorded in ADR-0005 (prefer conservative for spend).
-- [ ] Admin endpoints under `api/v1/admin/` to set/list/inspect budgets (guarded by the admin key).
+- [x] Alembic migration: `budget` (org-scoped in Phase 2, `limit_usd`, `period` [daily/monthly], `status`). See `docs/ARCHITECTURE.md` §9. (Per-key scope + rolling window deferred; noted in ADR-0005.)
+- [x] `services/budgets.py` (+ a pure check in `domain/reliability/budget.py`): compare accumulated spend (from Task 1's `usage_record`, the Postgres system of record) against the budget for the current period.
+- [x] Wire into gateway **preflight**; over-budget → OpenAI-shaped billing error (`429`, type `insufficient_quota`). Fail-safe posture recorded in ADR-0005 (prefer conservative for spend).
+- [x] Admin endpoints under `api/v1/admin/` to set/list/inspect budgets (guarded by the admin key).
 - **Accept:** integration test — requests under budget pass, over budget are rejected with the correct envelope; the window resets per `period`; `make check` green.
 
 ## Task 4 — Retry policy (harden `execute`)

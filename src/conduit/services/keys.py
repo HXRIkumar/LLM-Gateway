@@ -23,10 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from conduit.domain.errors import AuthError, NotFound
 from conduit.infra.db.models import ApiKey, ApiKeyStatus, Organization
+from conduit.services.orgs import DEFAULT_ORG_NAME, get_or_create_org
 
 KEY_SCHEME = "ck-"
 PREFIX_LENGTH = 12  # length of the stored lookup prefix (includes the scheme)
-DEFAULT_ORG_NAME = "default"
 
 
 def generate_token() -> str:
@@ -70,12 +70,7 @@ class KeyService:
         self._session = session
 
     async def get_or_create_default_org(self, name: str = DEFAULT_ORG_NAME) -> Organization:
-        org = await self._session.scalar(select(Organization).where(Organization.name == name))
-        if org is None:
-            org = Organization(name=name)
-            self._session.add(org)
-            await self._session.flush()
-        return org
+        return await get_or_create_org(self._session, name)
 
     async def issue(self, org_id: uuid.UUID) -> IssuedKey:
         """Create a key, persisting only its hash + prefix; return the plaintext once."""

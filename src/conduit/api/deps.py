@@ -22,6 +22,7 @@ from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import RedisRateLimiter, check_redis
 from conduit.providers.registry import ProviderRegistry
+from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
 from conduit.services.usage import UsageService
 
@@ -98,10 +99,18 @@ def get_gateway(
         rate_limiter=rate_limiter,
         key_limit=key_limit,
         org_limit=org_limit,
+        budget=BudgetService(sessionmaker),
     )
 
 
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
+
+
+def get_budget_service(sessionmaker: SessionmakerDep) -> BudgetService:
+    return BudgetService(sessionmaker)
+
+
+BudgetServiceDep = Annotated[BudgetService, Depends(get_budget_service)]
 
 
 async def database_ready(engine: DbEngineDep) -> bool:

@@ -26,6 +26,13 @@ class ApiKeyStatus(StrEnum):
     REVOKED = "revoked"
 
 
+class BudgetPeriod(StrEnum):
+    """The spend window a budget resets on."""
+
+    DAILY = "daily"
+    MONTHLY = "monthly"
+
+
 class Organization(Base):
     """A tenant that owns API keys (and, later, budgets and policies)."""
 
@@ -81,4 +88,19 @@ class UsageRecord(Base):
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))
     latency_ms: Mapped[int] = mapped_column(default=0)
     status: Mapped[str] = mapped_column(String(16), default="ok")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Budget(Base):
+    """A per-org spend cap for a recurring period (org-scoped in Phase 2)."""
+
+    __tablename__ = "budget"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organization.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    limit_usd: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    period: Mapped[str] = mapped_column(String(16), default=BudgetPeriod.MONTHLY)
+    status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

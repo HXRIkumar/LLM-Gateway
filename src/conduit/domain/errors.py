@@ -68,6 +68,14 @@ class RateLimited(ConduitError):
         self.retry_after = retry_after
 
 
+class BudgetExceeded(ConduitError):
+    """The org has exhausted its spend budget for the current period."""
+
+    status_code = 429
+    error_type = "insufficient_quota"
+    default_code = "insufficient_quota"
+
+
 class ModelNotFound(NotFound):
     """The requested model maps to no configured provider."""
 

@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 
 import structlog
 
-from conduit.domain.errors import RateLimited
+from conduit.domain.errors import BudgetExceeded, RateLimited
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy
 from conduit.domain.schemas import (
@@ -26,6 +26,7 @@ from conduit.domain.schemas import (
     Usage,
 )
 from conduit.providers.registry import ProviderRegistry
+from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
 from conduit.services.usage import UsageService
 
@@ -44,6 +45,7 @@ class Gateway:
         rate_limiter: RateLimiter | None = None,
         key_limit: RateLimit | None = None,
         org_limit: RateLimit | None = None,
+        budget: BudgetService | None = None,
     ) -> None:
         self._registry = registry
         self._routing = routing
@@ -51,6 +53,7 @@ class Gateway:
         self._rate_limiter = rate_limiter
         self._key_limit = key_limit
         self._org_limit = org_limit
+        self._budget = budget
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
@@ -98,8 +101,16 @@ class Gateway:
         return decision
 
     async def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
-        """Preflight policy: rate limits now; budgets in Task 3."""
+        """Preflight policy: rate limits then budget."""
         await self._check_rate_limits(principal)
+        await self._check_budget(principal)
+
+    async def _check_budget(self, principal: Principal) -> None:
+        if self._budget is None:
+            return
+        decision = await self._budget.check(principal.org_id)
+        if decision is not None and not decision.allowed:
+            raise BudgetExceeded("budget exceeded for the current period")
 
     async def _check_rate_limits(self, principal: Principal) -> None:
         if self._rate_limiter is None:

@@ -286,14 +286,15 @@ raw one-off invocation.
 - **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
   on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
   `v0.1.0`, and pushed.
-- **State:** Phase 2 Tasks 1-2 done — usage/cost accounting (`usage_record`) and
-  Redis token-bucket rate limiting: pure `domain/reliability/ratelimit.py` policy
-  + `RateLimiter` port, atomic Lua `RedisRateLimiter` (fail-open on Redis down),
-  wired into gateway preflight (per-key + per-org) → `429` + `Retry-After` via
-  `domain.errors.RateLimited`. `make check` green (92 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 3 — budgets: `budget` migration,
-  `services/budgets.py` + pure check summing `usage_record` spend for the period,
-  wire preflight → `429 insufficient_quota`, admin endpoints under `api/v1/admin/`.
+- **State:** Phase 2 Tasks 1-3 done — accounting, rate limiting, and budgets:
+  `budget` table (org-scoped), pure `domain/reliability/budget.py` (check +
+  period_start), `services/budgets.py` summing `usage_record` spend for the
+  current period, wired into preflight → `429 insufficient_quota`
+  (`domain.errors.BudgetExceeded`), plus admin `/v1/admin/budgets` set/list.
+  `make check` green (99 tests), compat gate intact.
+- **Immediate next action:** Phase 2 Task 4 — retry policy: pure
+  `domain/reliability/retry.py` (bounded backoff + jitter, retryable vs terminal,
+  never mid-stream), wired around provider execution with injected clock + rng.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

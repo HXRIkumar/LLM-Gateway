@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from conduit.domain.errors import ConduitError
@@ -53,6 +54,37 @@ async def conduit_error_handler(request: Request, exc: Exception) -> JSONRespons
     )
 
 
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Render a request-validation failure as an OpenAI-shaped 400."""
+    param: str | None = None
+    message = "invalid request"
+    if isinstance(exc, RequestValidationError) and exc.errors():
+        first = exc.errors()[0]
+        location = [str(part) for part in first.get("loc", ()) if part != "body"]
+        param = ".".join(location) or None
+        message = str(first.get("msg", message))
+        if param:
+            message = f"{message} (at '{param}')"
+    return error_response(
+        status_code=400,
+        message=message,
+        error_type="invalid_request_error",
+        param=param,
+    )
+
+
+async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Last-resort handler: a clean 500 envelope, details logged, never leaked."""
+    logger.error("unhandled exception", exc_info=exc)
+    return error_response(
+        status_code=500,
+        message="internal server error",
+        error_type="api_error",
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Wire the exception handlers onto the app."""
     app.add_exception_handler(ConduitError, conduit_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(Exception, unhandled_error_handler)

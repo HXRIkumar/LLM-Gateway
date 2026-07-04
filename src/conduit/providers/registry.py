@@ -53,6 +53,10 @@ class ProviderRegistry:
         """Every advertised model across all providers (for ``GET /v1/models``)."""
         return [model for name in self.names() for model in self._providers[name].models]
 
+    def model_provider_map(self) -> dict[str, str]:
+        """Map each advertised model id to the provider that serves it."""
+        return {model.id: name for name in self.names() for model in self._providers[name].models}
+
 
 def build_registry(
     settings: Settings,

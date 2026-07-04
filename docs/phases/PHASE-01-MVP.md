@@ -51,10 +51,10 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** integration tests cover issue → authenticate → revoke → rejected; keys never stored or logged in plaintext; `make check` green.
 
 ## Task 9 — The gateway pipeline (unary)
-- [ ] `services/gateway.py`: implement stages authenticate → validate → (preflight no-op) → route → execute → (account no-op) → respond, per `CLAUDE.md` §5.
-- [ ] `api/v1/chat.py`: `POST /v1/chat/completions` (non-streaming) delegating to the pipeline.
-- [ ] `api/v1/models.py`: `GET /v1/models` from the registry's advertised models.
-- [ ] `api/errors.py`: central exception handlers mapping `domain.errors` → OpenAI envelopes + status codes.
+- [x] `services/gateway.py`: implement stages authenticate → validate → (preflight no-op) → route → execute → (account no-op) → respond, per `CLAUDE.md` §5.
+- [x] `api/v1/chat.py`: `POST /v1/chat/completions` (non-streaming) delegating to the pipeline.
+- [x] `api/v1/models.py`: `GET /v1/models` from the registry's advertised models.
+- [x] `api/errors.py`: central exception handlers mapping `domain.errors` → OpenAI envelopes + status codes.
 - **Accept:** a non-streaming chat request succeeds against both OpenAI and Ollama (mocked) by changing only `model`; malformed input → OpenAI-shaped `400`; `make check` green.
 
 ## Task 10 — Streaming

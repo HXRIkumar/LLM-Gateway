@@ -284,18 +284,17 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–8 complete — skeleton/config/health; datastores; domain
-  core; providers + adapters; routing seam; and auth: `services/keys.py`
-  (issue/verify/list/revoke — plaintext shown once, only hash+prefix stored,
-  constant-time compare), bearer auth + admin guard in `api/middleware.py`, admin
-  key endpoints under `api/v1/admin/`, the `conduit keys create` CLI, and the
-  central OpenAI-shaped error handler in `api/errors.py`. `make check` green
-  (68 tests); CLI verified end-to-end against a real DB.
-- **Immediate next action:** Phase 1, Task 9 — the unary gateway pipeline:
-  `services/gateway.py` (authenticate → validate → preflight no-op → route →
-  execute → account no-op → respond), `api/v1/chat.py` (`POST /v1/chat/
-  completions`, non-streaming), `api/v1/models.py` (`GET /v1/models`), and the
-  RequestValidationError → OpenAI 400 handler in `api/errors.py`.
+- **State:** Tasks 1–9 complete — full unary path works. `services/gateway.py`
+  runs the pipeline (preflight no-op → route → execute → account no-op);
+  `POST /v1/chat/completions` (non-streaming) and `GET /v1/models` are live and
+  auth-guarded; `api/errors.py` renders domain errors, request-validation (→400),
+  and unhandled (→500) as OpenAI envelopes. A stock request hits OpenAI or Ollama
+  by changing only `model`; bad key → 401, malformed → 400, unknown model → 404.
+  `make check` green (73 tests).
+- **Immediate next action:** Phase 1, Task 10 — streaming: wire the SSE path
+  through `POST /v1/chat/completions` with `stream: true` (StreamingResponse of
+  `chat.completion.chunk` events terminated by `data: [DONE]`), for both
+  providers. Integration test asserts SSE framing + termination.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

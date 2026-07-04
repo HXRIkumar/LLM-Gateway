@@ -17,9 +17,11 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
+from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import check_redis
 from conduit.providers.registry import ProviderRegistry
+from conduit.services.gateway import Gateway
 
 
 def get_settings(request: Request) -> Settings:
@@ -42,6 +44,10 @@ def get_provider_registry(request: Request) -> ProviderRegistry:
     return cast(ProviderRegistry, request.app.state.provider_registry)
 
 
+def get_routing_strategy(request: Request) -> RoutingStrategy:
+    return cast(RoutingStrategy, request.app.state.routing_strategy)
+
+
 async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Yield a per-request session from the shared session factory."""
     factory = cast("async_sessionmaker[AsyncSession]", request.app.state.db_sessionmaker)
@@ -55,6 +61,14 @@ DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
+RoutingStrategyDep = Annotated[RoutingStrategy, Depends(get_routing_strategy)]
+
+
+def get_gateway(registry: ProviderRegistryDep, routing: RoutingStrategyDep) -> Gateway:
+    return Gateway(registry, routing)
+
+
+GatewayDep = Annotated[Gateway, Depends(get_gateway)]
 
 
 async def database_ready(engine: DbEngineDep) -> bool:

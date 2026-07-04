@@ -22,8 +22,8 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** migrations apply to the compose Postgres; integration test (testcontainers) opens a session and round-trips a row; `make check` green.
 
 ## Task 3 — Canonical schemas (domain)
-- [ ] `domain/schemas.py`: OpenAI-compatible `ChatCompletionRequest`, `ChatCompletionResponse`, `ChatCompletionChunk`, message/role/usage types — the single canonical shape.
-- [ ] `domain/errors.py`: typed exception hierarchy (`AuthError`, `ValidationError`, `NotFound`, `ProviderError` + subtypes, `AllProvidersFailed`, …).
+- [x] `domain/schemas.py`: OpenAI-compatible `ChatCompletionRequest`, `ChatCompletionResponse`, `ChatCompletionChunk`, message/role/usage types — the single canonical shape.
+- [x] `domain/errors.py`: typed exception hierarchy (`AuthError`, `ValidationError`, `NotFound`, `ProviderError` + subtypes, `AllProvidersFailed`, …).
 - **Accept:** unit tests validate parsing/serialization and round-trips against real OpenAI request/response fixtures; `make check` green.
 
 ## Task 4 — Provider abstraction & registry

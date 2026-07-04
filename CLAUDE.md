@@ -284,15 +284,14 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–2 complete — skeleton, `Settings`, app factory + lifespan;
-  structlog + request-id middleware; `/healthz` + `/readyz`; async SQLAlchemy
-  engine + session factory, Alembic (initial `organization` + `api_key`
-  migration), Redis client. Integration tests run on testcontainers Postgres +
-  Redis; `make check` green.
-- **Immediate next action:** Phase 1, Task 3 — canonical domain schemas
-  (`domain/schemas.py`: OpenAI-compatible request/response/chunk/usage) and the
-  `domain/errors.py` exception hierarchy, with unit tests round-tripping real
-  OpenAI request/response fixtures.
+- **State:** Tasks 1–3 complete — skeleton/config/health; async SQLAlchemy +
+  Alembic + Redis; and the pure domain core: OpenAI-compatible canonical schemas
+  (`domain/schemas.py`) and the typed error hierarchy (`domain/errors.py`), with
+  a purity guard test. Integration tests on testcontainers; `make check` green.
+- **Immediate next action:** Phase 1, Task 4 — provider abstraction: the
+  `Provider` async protocol + capability/model metadata (`providers/base.py`)
+  and the `name → factory` registry (`providers/registry.py`), exercised by a
+  fake in-memory provider in tests.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

@@ -34,8 +34,8 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** the observability profile brings up api + postgres + redis + otel-collector + prometheus + grafana healthy; Prometheus reports the api target as `up` and the OTel collector receiving spans; `make check` green (all configs parse/validate).
 
 ## Task 6 — Grafana dashboards (the "dashboards" deliverable)
-- [ ] Provision dashboards as JSON under `deploy/grafana/dashboards/` (auto-loaded via Grafana provisioning): a **Gateway Overview** (RPS, latency p50/p95/p99, error rate, tokens, spend), a **Per-Provider** view (health, breaker state, latency, error mix, share of traffic), and a **Governance** view (rate-limit and budget rejections, spend vs budget).
-- [ ] Every panel references a metric series that Task 3/4 actually produces.
+- [x] Provision dashboards as JSON under `deploy/grafana/dashboards/` (auto-loaded via Grafana provisioning): a **Gateway Overview** (RPS, latency p50/p95/p99, error rate, tokens, spend), a **Per-Provider** view (health, breaker state, latency, error mix, share of traffic), and a **Governance** view (rate-limit and budget rejections, spend vs budget).
+- [x] Every panel references a metric series that Task 3/4 actually produces. *Verified programmatically: all panel PromQL exprs across the 3 dashboards reference only the 10 series the gateway emits.*
 - **Accept:** dashboards load in the running Grafana without manual import (provisioning verified) and every panel query resolves against the live series; `make check` green.
 
 ## Task 7 — Docs & exit

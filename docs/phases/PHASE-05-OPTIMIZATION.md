@@ -20,8 +20,8 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test — N concurrent identical cacheable requests trigger exactly **one** upstream call (respx call-count assertion) and all callers receive the correct response; a failure is propagated to all waiters, not cached; `make check` green.
 
 ## Task 3 — Semantic cache (near-match) — ADR-0008
-- [ ] An `Embedder` port (pure interface) + an `infra/` adapter (a provider/model behind config); a vector index over recent cacheable prompts (start with a Redis-backed vector store or a simple in-process index — choice recorded in ADR-0008).
-- [ ] On a miss against the exact cache, embed the request and look up the nearest neighbor; serve the cached response when cosine similarity ≥ a configurable threshold. Miss → normal path. Apply the same safety guards as Task 1 (never for tool/vision/non-deterministic).
+- [x] An `Embedder` port (pure interface) + an `infra/` adapter (a provider/model behind config); a vector index over recent cacheable prompts (start with a Redis-backed vector store or a simple in-process index — choice recorded in ADR-0008). *Redis-backed brute-force vector index over a bounded recent window — no vector DB dependency.*
+- [x] On a miss against the exact cache, embed the request and look up the nearest neighbor; serve the cached response when cosine similarity ≥ a configurable threshold. Miss → normal path. Apply the same safety guards as Task 1 (never for tool/vision/non-deterministic).
 - **Accept:** integration test with a **mocked** embedder — a paraphrase within threshold produces a semantic hit (no upstream call); below threshold misses; guarded request types never semantic-hit; `make check` green.
 
 ## Task 4 — Replay capture (opt-in)

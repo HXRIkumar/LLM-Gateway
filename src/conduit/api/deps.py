@@ -36,6 +36,7 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
 from conduit.services.policies import PolicyService
+from conduit.services.semantic import SemanticCache
 from conduit.services.stats import UsageLatencyStats
 from conduit.services.usage import UsageService
 
@@ -76,6 +77,10 @@ def get_single_flight(request: Request) -> SingleFlight:
     return cast(SingleFlight, request.app.state.single_flight)
 
 
+def get_semantic_cache(request: Request) -> SemanticCache | None:
+    return cast("SemanticCache | None", getattr(request.app.state, "semantic_cache", None))
+
+
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
     """The session factory itself — for units of work that outlive the request
     (e.g. accounting at the end of a stream, after the request session closes)."""
@@ -98,6 +103,7 @@ RouterDep = Annotated[SmartRouter, Depends(get_router)]
 TracerDep = Annotated[Tracer, Depends(get_tracer)]
 MetricsDep = Annotated[Metrics, Depends(get_metrics)]
 SingleFlightDep = Annotated[SingleFlight, Depends(get_single_flight)]
+SemanticCacheDep = Annotated["SemanticCache | None", Depends(get_semantic_cache)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
@@ -110,6 +116,7 @@ def get_gateway(
     tracer: TracerDep,
     metrics: MetricsDep,
     single_flight: SingleFlightDep,
+    semantic: SemanticCacheDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
     rate_limiter = None
@@ -156,6 +163,7 @@ def get_gateway(
         metrics=metrics,
         cache=cache,
         single_flight=single_flight,
+        semantic=semantic,
     )
 
 

@@ -29,13 +29,17 @@ from conduit.domain.optimize.dedup import SingleFlight
 from conduit.domain.routing.catalog import Candidate, Catalog
 from conduit.domain.routing.classes import ModelResolver
 from conduit.domain.routing.engine import SmartRouter, StaticStrategy
+from conduit.infra.cache import RedisResponseCache
 from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
+from conduit.infra.embeddings import OpenAIEmbedder
 from conduit.infra.redis import create_redis_client
 from conduit.infra.telemetry.logging import configure_logging
 from conduit.infra.telemetry.metrics import Metrics
 from conduit.infra.telemetry.tracing import configure_tracing, get_tracer
+from conduit.infra.vector import RedisVectorIndex
 from conduit.providers.registry import build_registry
+from conduit.services.semantic import SemanticCache
 
 
 @asynccontextmanager
@@ -71,6 +75,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # App-scoped single-flight: shared across per-request Gateway instances so
     # concurrent identical cacheable requests collapse to one upstream call.
     app.state.single_flight = SingleFlight()
+
+    # Semantic cache (opt-in; needs an embedding backend). App-scoped so the
+    # vector index and embedder are shared across per-request Gateway instances.
+    app.state.semantic_cache = None
+    if settings.semantic_cache_enabled and settings.openai_api_key is not None:
+        app.state.semantic_cache = SemanticCache(
+            OpenAIEmbedder(
+                http_client,
+                api_key=settings.openai_api_key.get_secret_value(),
+                base_url=settings.openai_base_url,
+                model=settings.embedding_model,
+            ),
+            RedisVectorIndex(
+                redis_client,
+                max_entries=settings.semantic_cache_max_entries,
+                ttl_seconds=settings.cache_ttl_seconds,
+            ),
+            RedisResponseCache(redis_client, settings.cache_ttl_seconds),
+            settings.semantic_cache_threshold,
+        )
 
     try:
         yield

@@ -60,6 +60,7 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.keys import Principal
 from conduit.services.policies import PolicyService
+from conduit.services.semantic import SemanticCache
 from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
@@ -108,6 +109,7 @@ class Gateway:
         metrics: Metrics | None = None,
         cache: ResponseCache | None = None,
         single_flight: SingleFlight | None = None,
+        semantic: SemanticCache | None = None,
     ) -> None:
         self._registry = registry
         self._router = router
@@ -126,6 +128,7 @@ class Gateway:
         self._stats = stats
         self._cache = cache
         self._single_flight = single_flight
+        self._semantic = semantic
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
@@ -135,11 +138,18 @@ class Gateway:
             decision = await self._plan(request, principal)
 
             key = cache_key(request) if self._cacheable(request, bypass_cache) else None
+            vector: list[float] | None = None
             if key is not None:
                 cached = await self._cache.get(key)  # type: ignore[union-attr]
                 if cached is not None:
-                    self._on_cache_hit(span, principal, cached)
+                    self._on_cache_hit(span, principal, cached, kind="hit")
                     return cached
+                if self._semantic is not None:
+                    probe = await self._semantic.probe(request)
+                    vector = probe.vector
+                    if probe.hit is not None:
+                        self._on_cache_hit(span, principal, probe.hit, kind="semantic_hit")
+                        return probe.hit
                 self._record_cache_event("miss")
 
             obs = _Observation()
@@ -177,6 +187,8 @@ class Gateway:
             self._record_success(target, response.usage, cost, latency_ms)
             if key is not None:
                 await self._cache.set(key, response)  # type: ignore[union-attr]
+                if self._semantic is not None and vector is not None:
+                    await self._semantic.remember(key, vector)
             return response
 
     async def _execute_with_fallback(
@@ -256,13 +268,22 @@ class Gateway:
         decision = await self._plan(request, principal)
 
         key = cache_key(request) if self._cacheable(request, bypass_cache) else None
+        vector: list[float] | None = None
         if key is not None:
             cached = await self._cache.get(key)  # type: ignore[union-attr]
             if cached is not None:
-                self._on_cache_hit(None, principal, cached)
+                self._on_cache_hit(None, principal, cached, kind="hit")
                 for chunk in response_to_chunks(cached):
                     yield chunk
                 return
+            if self._semantic is not None:
+                probe = await self._semantic.probe(request)
+                vector = probe.vector
+                if probe.hit is not None:
+                    self._on_cache_hit(None, principal, probe.hit, kind="semantic_hit")
+                    for chunk in response_to_chunks(probe.hit):
+                        yield chunk
+                    return
             self._record_cache_event("miss")
 
         targets = [
@@ -311,6 +332,8 @@ class Gateway:
                     usage=last_usage,
                 ),
             )
+            if self._semantic is not None and vector is not None:
+                await self._semantic.remember(key, vector)
 
     async def _open_stream(
         self, request: ChatCompletionRequest, targets: list[RoutingTarget], obs: _Observation
@@ -515,17 +538,18 @@ class Gateway:
             self._metrics.cache_events_total.labels(event=event).inc()
 
     def _on_cache_hit(
-        self, span: Any, principal: Principal, cached: ChatCompletionResponse
+        self, span: Any, principal: Principal, cached: ChatCompletionResponse, *, kind: str
     ) -> None:
         """Record a cache hit: metric, span attribute, and an access log (no bodies)."""
-        self._record_cache_event("hit")
+        self._record_cache_event(kind)
         if span is not None:
-            span.set_attribute("conduit.cache", "hit")
+            span.set_attribute("conduit.cache", kind)
             span.set_attribute("conduit.status", "ok")
         logger.info(
             "request.cache_hit",
             key_prefix=principal.prefix,
             model=cached.model,
+            cache=kind,
             total_tokens=cached.usage.total_tokens if cached.usage else 0,
             status="ok",
         )

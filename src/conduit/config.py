@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     # requests are cached; a `Cache-Control: no-store` request header bypasses it.
     cache_enabled: bool = True
     cache_ttl_seconds: int = 3600
+    # Semantic (near-match) cache. Off by default — it needs an embedding backend.
+    semantic_cache_enabled: bool = False
+    semantic_cache_threshold: float = 0.95
+    semantic_cache_max_entries: int = 500
+    embedding_model: str = "text-embedding-3-small"
 
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.

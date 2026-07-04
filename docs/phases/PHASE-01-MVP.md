@@ -27,8 +27,8 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** unit tests validate parsing/serialization and round-trips against real OpenAI request/response fixtures; `make check` green.
 
 ## Task 4 — Provider abstraction & registry
-- [ ] `providers/base.py`: `Provider` async protocol + capability/model metadata (context window, tools, JSON mode, vision, per-token pricing) per ADR-0003.
-- [ ] `providers/registry.py`: `name → provider factory`, constructed from `Settings` in the app factory.
+- [x] `providers/base.py`: `Provider` async protocol + capability/model metadata (context window, tools, JSON mode, vision, per-token pricing) per ADR-0003.
+- [x] `providers/registry.py`: `name → provider factory`, constructed from `Settings` in the app factory.
 - **Accept:** a fake in-memory provider implements the protocol and is exercised end-to-end in tests; adding it required only an implementation + a registry entry; `make check` green.
 
 ## Task 5 — OpenAI provider adapter

@@ -23,6 +23,7 @@ from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
 from conduit.infra.redis import create_redis_client
 from conduit.infra.telemetry.logging import configure_logging
+from conduit.providers.registry import build_registry
 
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_sessionmaker = create_sessionmaker(engine)
     app.state.redis = redis_client
     app.state.http_client = http_client
+    app.state.provider_registry = build_registry(settings, http_client)
 
     try:
         yield

@@ -284,14 +284,16 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–3 complete — skeleton/config/health; async SQLAlchemy +
-  Alembic + Redis; and the pure domain core: OpenAI-compatible canonical schemas
-  (`domain/schemas.py`) and the typed error hierarchy (`domain/errors.py`), with
-  a purity guard test. Integration tests on testcontainers; `make check` green.
-- **Immediate next action:** Phase 1, Task 4 — provider abstraction: the
-  `Provider` async protocol + capability/model metadata (`providers/base.py`)
-  and the `name → factory` registry (`providers/registry.py`), exercised by a
-  fake in-memory provider in tests.
+- **State:** Tasks 1–4 complete — skeleton/config/health; SQLAlchemy + Alembic +
+  Redis; pure domain core (schemas + errors); and the provider abstraction: the
+  `Provider` async protocol with capability/pricing metadata (`providers/base.py`)
+  and the `name → provider` registry built from a factory table
+  (`providers/registry.py`, wired into the lifespan). A shared `FakeProvider`
+  test double exercises it end-to-end. `make check` green.
+- **Immediate next action:** Phase 1, Task 5 — OpenAI provider adapter
+  (`providers/openai.py`): canonical ⇄ OpenAI translation for unary + streaming
+  over the shared httpx client, error mapping to `domain.errors`, with
+  respx-mocked tests (success, 400/401/429/5xx, timeout, streamed).
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

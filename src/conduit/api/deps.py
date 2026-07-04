@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from conduit.config import Settings
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import check_redis
+from conduit.providers.registry import ProviderRegistry
 
 
 def get_settings(request: Request) -> Settings:
@@ -37,6 +38,10 @@ def get_http_client(request: Request) -> httpx.AsyncClient:
     return cast(httpx.AsyncClient, request.app.state.http_client)
 
 
+def get_provider_registry(request: Request) -> ProviderRegistry:
+    return cast(ProviderRegistry, request.app.state.provider_registry)
+
+
 async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Yield a per-request session from the shared session factory."""
     factory = cast("async_sessionmaker[AsyncSession]", request.app.state.db_sessionmaker)
@@ -49,6 +54,7 @@ DbEngineDep = Annotated[AsyncEngine, Depends(get_db_engine)]
 DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
+ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 
 
 async def database_ready(engine: DbEngineDep) -> bool:

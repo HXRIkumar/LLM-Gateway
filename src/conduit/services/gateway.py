@@ -43,6 +43,7 @@ from conduit.domain.schemas import (
     ChatCompletionResponse,
     Usage,
 )
+from conduit.infra.telemetry.metrics import Metrics
 from conduit.infra.telemetry.tracing import get_tracer
 from conduit.providers.base import Provider
 from conduit.providers.registry import ProviderRegistry
@@ -83,11 +84,13 @@ class Gateway:
         policy_service: PolicyService | None = None,
         stats: LatencyStats | None = None,
         tracer: Tracer | None = None,
+        metrics: Metrics | None = None,
     ) -> None:
         self._registry = registry
         self._router = router
         self._usage = usage
         self._tracer = tracer or get_tracer()
+        self._metrics = metrics
         self._rate_limiter = rate_limiter
         self._key_limit = key_limit
         self._org_limit = org_limit
@@ -107,7 +110,11 @@ class Gateway:
             decision = await self._plan(request, principal)
             obs = _Observation()
             start = time.perf_counter()
-            response, target = await self._execute_with_fallback(request, decision, obs)
+            try:
+                response, target = await self._execute_with_fallback(request, decision, obs)
+            except ConduitError:
+                self._record_error(decision.provider, decision.model)
+                raise
             latency_ms = int((time.perf_counter() - start) * 1000)
             cost = await self._account(
                 target.provider,
@@ -127,6 +134,7 @@ class Gateway:
             self._log_completion(
                 principal, decision, target, response.usage, cost, latency_ms, obs, "ok"
             )
+            self._record_success(target, response.usage, cost, latency_ms)
             return response
 
     async def _execute_with_fallback(
@@ -163,10 +171,18 @@ class Gateway:
         breaker = self._breaker
         if breaker is not None and not await breaker.allow(provider.name):
             obs.breaker_outcome = "open"
+            if self._metrics is not None:
+                self._metrics.set_breaker_state(provider.name, "open")
             raise ProviderError(f"circuit breaker open for provider {provider.name!r}")
 
+        local_attempts = 0
+
         async def call() -> ChatCompletionResponse:
+            nonlocal local_attempts
+            local_attempts += 1
             obs.attempts += 1
+            if local_attempts > 1 and self._metrics is not None:
+                self._metrics.retries_total.labels(provider=provider.name).inc()
             with self._tracer.start_as_current_span("provider.request") as span:
                 span.set_attribute("conduit.provider", provider.name)
                 span.set_attribute("conduit.attempt", obs.attempts)
@@ -175,12 +191,18 @@ class Gateway:
         try:
             result = await retry_async(call, self._retry_policy, sleep=self._sleep, rng=self._rng)
         except ConduitError as exc:
+            if self._metrics is not None:
+                self._metrics.upstream_errors_total.labels(
+                    provider=provider.name, type=type(exc).__name__
+                ).inc()
             if breaker is not None and is_retryable(exc):
                 await breaker.record_failure(provider.name)
                 obs.breaker_outcome = "failure"
             raise
         if breaker is not None:
             await breaker.record_success(provider.name)
+            if self._metrics is not None:
+                self._metrics.set_breaker_state(provider.name, "closed")
         return result
 
     async def stream_chat_completion(
@@ -216,6 +238,7 @@ class Gateway:
             status="ok",
         )
         self._log_completion(principal, decision, target, last_usage, cost, latency_ms, obs, "ok")
+        self._record_success(target, last_usage, cost, latency_ms)
 
     async def _open_stream(
         self, request: ChatCompletionRequest, targets: list[RoutingTarget], obs: _Observation
@@ -316,6 +339,8 @@ class Gateway:
             return
         decision = await self._budget.check(principal.org_id)
         if decision is not None and not decision.allowed:
+            if self._metrics is not None:
+                self._metrics.budget_rejections_total.inc()
             raise BudgetExceeded("budget exceeded for the current period")
 
     async def _check_rate_limits(self, principal: Principal) -> None:
@@ -329,6 +354,8 @@ class Gateway:
         for scope, limit in scoped:
             result = await self._rate_limiter.check(scope, limit)
             if not result.allowed:
+                if self._metrics is not None:
+                    self._metrics.ratelimit_rejections_total.inc()
                 raise RateLimited("rate limit exceeded", retry_after=result.retry_after_seconds)
 
     async def _account(
@@ -379,3 +406,25 @@ class Gateway:
             latency_ms=latency_ms,
             status=status,
         )
+
+    def _record_success(
+        self, target: RoutingTarget, usage: Usage | None, cost: Decimal, latency_ms: int
+    ) -> None:
+        m = self._metrics
+        if m is None:
+            return
+        m.requests_total.labels(provider=target.provider, model=target.model, status="ok").inc()
+        m.request_duration.labels(provider=target.provider, model=target.model).observe(
+            latency_ms / 1000
+        )
+        m.upstream_duration.labels(provider=target.provider).observe(latency_ms / 1000)
+        if usage is not None:
+            m.tokens_total.labels(direction="prompt").inc(usage.prompt_tokens)
+            m.tokens_total.labels(direction="completion").inc(usage.completion_tokens)
+        m.cost_usd_total.labels(provider=target.provider, model=target.model).inc(float(cost))
+
+    def _record_error(self, provider: str, model: str) -> None:
+        if self._metrics is not None:
+            self._metrics.requests_total.labels(
+                provider=provider, model=model, status="error"
+            ).inc()

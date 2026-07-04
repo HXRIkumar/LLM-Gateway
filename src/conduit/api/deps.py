@@ -29,6 +29,7 @@ from conduit.infra.redis import (
     RedisRateLimiter,
     check_redis,
 )
+from conduit.infra.telemetry.metrics import Metrics
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
@@ -65,6 +66,10 @@ def get_tracer(request: Request) -> Tracer:
     return cast(Tracer, request.app.state.tracer)
 
 
+def get_metrics(request: Request) -> Metrics:
+    return cast(Metrics, request.app.state.metrics)
+
+
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
     """The session factory itself — for units of work that outlive the request
     (e.g. accounting at the end of a stream, after the request session closes)."""
@@ -85,6 +90,7 @@ HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 RouterDep = Annotated[SmartRouter, Depends(get_router)]
 TracerDep = Annotated[Tracer, Depends(get_tracer)]
+MetricsDep = Annotated[Metrics, Depends(get_metrics)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
@@ -95,6 +101,7 @@ def get_gateway(
     redis: RedisDep,
     settings: SettingsDep,
     tracer: TracerDep,
+    metrics: MetricsDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
     rate_limiter = None
@@ -135,6 +142,7 @@ def get_gateway(
         policy_service=PolicyService(sessionmaker),
         stats=UsageLatencyStats(sessionmaker),
         tracer=tracer,
+        metrics=metrics,
     )
 
 

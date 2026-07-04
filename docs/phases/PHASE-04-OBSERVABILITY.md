@@ -21,8 +21,8 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** integration test with an in-memory span exporter asserts the expected span tree and attributes for a unary and a streaming request; `make check` green.
 
 ## Task 3 — Prometheus metrics (fill the metrics seam)
-- [ ] `infra/telemetry/metrics.py`: a prometheus-client registry and the core instruments — `requests_total{provider,model,status}`, `request_duration_seconds` (histogram), `upstream_duration_seconds`, `tokens_total{direction}`, `cost_usd_total{provider,model}`, `upstream_errors_total{provider,type}`, `retries_total{provider}`, `ratelimit_rejections_total`, `budget_rejections_total`, and `circuit_breaker_state{provider}`.
-- [ ] `GET /metrics` endpoint, gated by `CONDUIT_METRICS_ENABLED`. Keep label sets low-cardinality.
+- [x] `infra/telemetry/metrics.py`: a prometheus-client registry and the core instruments — `requests_total{provider,model,status}`, `request_duration_seconds` (histogram), `upstream_duration_seconds`, `tokens_total{direction}`, `cost_usd_total{provider,model}`, `upstream_errors_total{provider,type}`, `retries_total{provider}`, `ratelimit_rejections_total`, `budget_rejections_total`, and `circuit_breaker_state{provider}`.
+- [x] `GET /metrics` endpoint, gated by `CONDUIT_METRICS_ENABLED`. Keep label sets low-cardinality.
 - **Accept:** integration test scrapes `/metrics`, asserts the key series exist and increment/observe correctly across a request (success + a forced upstream error), and asserts no unbounded labels; `make check` green.
 
 ## Task 4 — Provider & governance signals

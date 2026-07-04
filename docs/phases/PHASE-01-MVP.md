@@ -40,8 +40,8 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** `respx`-mocked tests mirror Task 5 for Ollama's API shape; the same canonical schema works unchanged across both providers; `make check` green.
 
 ## Task 7 — Static routing seam
-- [ ] `domain/routing/strategy.py`: `RoutingStrategy` protocol + `RoutingDecision` (chosen provider/model + fallback plan + reason).
-- [ ] `domain/routing/engine.py`: `StaticStrategy` — explicit `model → provider` mapping from config. This is the seam V3 will fill.
+- [x] `domain/routing/strategy.py`: `RoutingStrategy` protocol + `RoutingDecision` (chosen provider/model + fallback plan + reason).
+- [x] `domain/routing/engine.py`: `StaticStrategy` — explicit `model → provider` mapping from config. This is the seam V3 will fill.
 - **Accept:** unit tests assert requests map to the configured provider/model and produce a decision object; `make check` green.
 
 ## Task 8 — API key management & authentication

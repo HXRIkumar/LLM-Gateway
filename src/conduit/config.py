@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     ollama_base_url: str = "http://localhost:11434"
+
+    # --- Routing ---
+    # Explicit model → provider overrides for static routing. Empty by default:
+    # routes are derived from each provider's advertised models, and entries here
+    # add or override them (e.g. {"gpt-4o-mini": "openai"}). Parsed from JSON when
+    # set via CONDUIT_MODEL_ROUTES.
+    model_routes: dict[str, str] = Field(default_factory=dict)
 
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.

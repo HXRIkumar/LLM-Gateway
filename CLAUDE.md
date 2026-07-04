@@ -284,17 +284,17 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–6 complete — skeleton/config/health; SQLAlchemy + Alembic +
-  Redis; pure domain core; provider abstraction + registry; and both provider
-  adapters. The Ollama adapter (`providers/ollama.py`) translates canonical ⇄
-  Ollama's native `/api/chat` (options block, `eval_count` usage, NDJSON stream)
-  for unary + streaming, mapping errors to `domain.errors`. respx tests mirror
-  the OpenAI suite and prove one canonical request/response works unchanged
-  across both backends. `make check` green.
-- **Immediate next action:** Phase 1, Task 7 — static routing seam:
-  `domain/routing/strategy.py` (`RoutingStrategy` protocol + `RoutingDecision`
-  with provider/model + fallback plan + reason) and `domain/routing/engine.py`
-  (`StaticStrategy` — explicit `model → provider` map from config). Unit tests.
+- **State:** Tasks 1–7 complete — skeleton/config/health; SQLAlchemy + Alembic +
+  Redis; pure domain core; provider abstraction + both adapters; and the routing
+  seam: `RoutingStrategy` protocol + `RoutingDecision` (provider/model + fallback
+  plan + reason) and `StaticStrategy` (explicit `model → provider` map). Config
+  gained `model_routes` overrides (wired in Task 9). `make check` green.
+- **Immediate next action:** Phase 1, Task 8 — API key management + auth:
+  `services/keys.py` (issue returning plaintext once; store hash + prefix;
+  verify by prefix + constant-time compare; list; revoke), bearer auth in
+  `api/middleware.py` (→ principal, OpenAI-shaped 401), admin endpoints under
+  `api/v1/admin/` guarded by the bootstrap admin key, and `cli.py` to mint the
+  first key. Integration tests: issue → authenticate → revoke → rejected.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

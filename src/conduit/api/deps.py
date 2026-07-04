@@ -20,7 +20,7 @@ from conduit.config import Settings
 from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
-from conduit.domain.routing.strategy import RoutingStrategy
+from conduit.domain.routing.engine import SmartRouter
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import (
     ProviderHealthStore,
@@ -32,6 +32,7 @@ from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
 from conduit.services.policies import PolicyService
+from conduit.services.stats import UsageLatencyStats
 from conduit.services.usage import UsageService
 
 
@@ -55,8 +56,8 @@ def get_provider_registry(request: Request) -> ProviderRegistry:
     return cast(ProviderRegistry, request.app.state.provider_registry)
 
 
-def get_routing_strategy(request: Request) -> RoutingStrategy:
-    return cast(RoutingStrategy, request.app.state.routing_strategy)
+def get_router(request: Request) -> SmartRouter:
+    return cast(SmartRouter, request.app.state.router)
 
 
 def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -77,13 +78,13 @@ DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
-RoutingStrategyDep = Annotated[RoutingStrategy, Depends(get_routing_strategy)]
+RouterDep = Annotated[SmartRouter, Depends(get_router)]
 SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
 def get_gateway(
     registry: ProviderRegistryDep,
-    routing: RoutingStrategyDep,
+    router: RouterDep,
     sessionmaker: SessionmakerDep,
     redis: RedisDep,
     settings: SettingsDep,
@@ -116,7 +117,7 @@ def get_gateway(
         )
     return Gateway(
         registry,
-        routing,
+        router,
         usage,
         rate_limiter=rate_limiter,
         key_limit=key_limit,
@@ -125,6 +126,7 @@ def get_gateway(
         retry_policy=retry_policy,
         breaker=breaker,
         policy_service=PolicyService(sessionmaker),
+        stats=UsageLatencyStats(sessionmaker),
     )
 
 

@@ -8,7 +8,9 @@ from typing import Any
 import pytest
 
 from conduit.domain.errors import ModelNotFound
-from conduit.domain.routing.engine import StaticStrategy
+from conduit.domain.routing.catalog import Catalog
+from conduit.domain.routing.classes import ModelResolver
+from conduit.domain.routing.engine import SmartRouter, StaticStrategy
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.gateway import Gateway
 from conduit.services.keys import Principal
@@ -28,12 +30,14 @@ def _principal() -> Principal:
     return Principal(api_key_id=uuid.uuid4(), org_id=uuid.uuid4(), prefix="ck-testtest")
 
 
+def _router(routes: dict[str, str]) -> SmartRouter:
+    return SmartRouter(StaticStrategy(routes), ModelResolver(routes), Catalog([]))
+
+
 def _gateway(fake_provider_cls: Any) -> tuple[Gateway, _RecordingUsage]:
     provider = fake_provider_cls(name="fake", model_ids=("fake-model",))
     usage = _RecordingUsage()
-    gateway = Gateway(
-        ProviderRegistry({"fake": provider}), StaticStrategy({"fake-model": "fake"}), usage
-    )  # type: ignore[arg-type]
+    gateway = Gateway(ProviderRegistry({"fake": provider}), _router({"fake-model": "fake"}), usage)  # type: ignore[arg-type]
     return gateway, usage
 
 
@@ -51,7 +55,7 @@ async def test_pipeline_unknown_model_raises_model_not_found(
     fake_provider_cls, sample_request
 ) -> None:
     provider = fake_provider_cls(name="fake", model_ids=("fake-model",))
-    gateway = Gateway(ProviderRegistry({"fake": provider}), StaticStrategy({}), _RecordingUsage())  # type: ignore[arg-type]
+    gateway = Gateway(ProviderRegistry({"fake": provider}), _router({}), _RecordingUsage())  # type: ignore[arg-type]
     with pytest.raises(ModelNotFound):
         await gateway.chat_completion(sample_request, _principal())
 

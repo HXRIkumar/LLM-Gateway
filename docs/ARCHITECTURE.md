@@ -204,7 +204,7 @@ flowchart TD
 `domain/routing` turns a request + context into a `RoutingDecision` (chosen provider/model + ordered fallback plan + the reason). All strategies implement one interface, so the MVP's static mapping and V3's intelligent strategies are interchangeable.
 
 - **MVP:** `StaticStrategy` — explicit `model → provider` map. ✅
-- **V3:** `CostAware`, `LatencyAware`, `CapabilityAware`, and a `PolicyStrategy` that composes constraints (required capabilities, allow/deny lists) with preferences (minimize cost / latency) and fallbacks. ⚠️
+- **V3:** ✅ built — `SmartRouter` composes classify → resolve classes/aliases → capability + policy filter → objective strategy (`cost` / `latency` / `balanced`). A concrete model always bypasses to `StaticStrategy` (byte-for-byte Phase 1, ADR-0006); smart routing applies only to aliases. Latency is read via a `LatencyStats` port (usage-ledger backed). Policies are per key/org (`routing_policy`).
 - Inputs available to a strategy: request features (size, requested capabilities, requested model), live signals (per-provider latency percentiles, health, breaker state from Redis), and durable policy (from Postgres). The chosen decision is recorded per request for later analysis.
 
 ## 8. Reliability layer (V2) ✅ built
@@ -307,6 +307,7 @@ Recorded as ADRs in `docs/adr/`:
 - **ADR-0003** — a canonical OpenAI-compatible schema with provider adapters behind a protocol, rather than per-provider passthrough.
 - **ADR-0004** — Postgres as system of record + Redis for fast-path state, rather than one store for both.
 - **ADR-0005** — reliability layer (rate limit, budget, retry, breaker, fallback) + the Redis fail-safe posture: limits/breakers fail open, budgets stay strict on Postgres.
+- **ADR-0006** — intelligent routing: model classes/aliases, cost/latency/balanced strategies, and the binding concrete-model back-compat guarantee.
 
 ## 13. Risks & mitigations
 

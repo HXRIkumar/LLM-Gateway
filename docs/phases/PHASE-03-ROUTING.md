@@ -46,19 +46,19 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests — each objective selects the right strategy; a concrete-model request bypasses to static regardless of objective; weights change the balanced outcome as expected; `make check` green.
 
 ## Task 8 — Pipeline integration, docs & exit
-- [ ] The route stage now runs classify → load policy → resolve classes → run the selected strategy → emit a `RoutingDecision` (chosen `(provider, model)` + ordered fallback plan + reason). Confirm Phase 2's execute/breaker/fallback consumes the plan unchanged.
-- [ ] Write **ADR-0006** (routing model: classes/aliases, strategies, back-compat guarantee). Update `docs/ARCHITECTURE.md` (routing section) and `CLAUDE.md` §10 to point at Phase 4.
-- [ ] End-to-end integration test (respx, multiple providers): a cost policy routes to the cheapest capable provider; a latency policy to the fastest; a capability filter excludes an incapable provider; when the chosen provider fails, the smart fallback plan is walked (ties into Phase 2).
+- [x] The route stage now runs classify → load policy → resolve classes → run the selected strategy → emit a `RoutingDecision`. Concrete models take the static fast path (no policy/stats I/O); Phase 2's execute/breaker/fallback consumes the plan unchanged.
+- [x] Wrote **ADR-0006** (routing model: classes/aliases, strategies, back-compat guarantee). Updated `docs/ARCHITECTURE.md` (routing section) and `CLAUDE.md` §10 to point at Phase 4.
+- [x] End-to-end integration test (respx, two providers): cost policy → cheapest capable; latency policy → fastest observed; vision capability filter excludes Ollama; primary failure walks the smart fallback plan (ties into Phase 2).
 - **Accept:** the Phase 3 exit checklist below and the ROADMAP Phase 3 **DoD** hold; the OpenAI compatibility gate still passes; `make check` green.
 
 ---
 
 ### Phase 3 exit checklist
-- [ ] Requests are classified (context/tools/vision/JSON/streaming) and routed by the active policy objective.
-- [ ] Cost, latency, and balanced strategies all work behind the one `RoutingStrategy` protocol; the decision includes an ordered fallback plan.
-- [ ] Capability filtering excludes providers that can't serve a request; policy allow/deny lists are honored.
-- [ ] Concrete model names route deterministically (unchanged from Phase 1); aliases/classes resolve to candidate sets; unknown models still `404`.
-- [ ] Smart routing integrates cleanly with Phase 2's retry/breaker/fallback and usage accounting.
-- [ ] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
-- [ ] OpenAI compatibility intact — the compat gate still passes (no regression).
-- [ ] Docs (`ARCHITECTURE`, ADR-0006, `CLAUDE.md` §10) reflect reality.
+- [x] Requests are classified (context/tools/vision/JSON) and routed by the active policy objective.
+- [x] Cost, latency, and balanced strategies all work behind the `SmartRouter`; the decision includes an ordered fallback plan.
+- [x] Capability filtering excludes providers that can't serve a request; policy allow/deny lists are honored.
+- [x] Concrete model names route deterministically (unchanged from Phase 1); aliases/classes resolve to candidate sets; unknown models still `404`.
+- [x] Smart routing integrates cleanly with Phase 2's retry/breaker/fallback and usage accounting.
+- [x] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
+- [x] OpenAI compatibility intact — the compat gate still passes (no regression).
+- [x] Docs (`ARCHITECTURE`, ADR-0006, `CLAUDE.md` §10) reflect reality.

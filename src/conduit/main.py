@@ -25,7 +25,9 @@ from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
 from conduit.api.v1.admin import policies as admin_policies
 from conduit.config import Settings
-from conduit.domain.routing.engine import StaticStrategy
+from conduit.domain.routing.catalog import Candidate, Catalog
+from conduit.domain.routing.classes import ModelResolver
+from conduit.domain.routing.engine import SmartRouter, StaticStrategy
 from conduit.infra.db.engine import create_db_engine
 from conduit.infra.db.session import create_sessionmaker
 from conduit.infra.redis import create_redis_client
@@ -49,9 +51,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     registry = build_registry(settings, http_client)
     app.state.provider_registry = registry
-    # Static routes: derived from advertised models, with config overrides on top.
+    # Routes derived from advertised models, with config overrides on top.
     routes = {**registry.model_provider_map(), **settings.model_routes}
-    app.state.routing_strategy = StaticStrategy(routes, fallbacks=settings.model_fallbacks)
+    static = StaticStrategy(routes, fallbacks=settings.model_fallbacks)
+    resolver = ModelResolver(routes, settings.model_aliases)
+    catalog = Catalog(
+        Candidate(provider=name, model=model)
+        for name in registry.names()
+        for model in registry.get(name).models
+    )
+    app.state.router = SmartRouter(static, resolver, catalog)
 
     try:
         yield

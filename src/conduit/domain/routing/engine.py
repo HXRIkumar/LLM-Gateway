@@ -93,6 +93,14 @@ class SmartRouter:
         self._catalog = catalog
         self._weights = weights or BalancedWeights()
 
+    def is_static(self, model: str) -> bool:
+        """True when the model routes statically (concrete) — no smart inputs needed."""
+        return self._static.handles(model)
+
+    def catalog_targets(self) -> list[tuple[str, str]]:
+        """All ``(provider, model)`` pairs, for pre-fetching a latency snapshot."""
+        return [(c.provider, c.model.id) for c in self._catalog.all()]
+
     def route(
         self,
         request: ChatCompletionRequest,

@@ -28,6 +28,9 @@ dependencies = [
     "structlog>=24.1",
     "orjson>=3.10",
     "arq>=0.28.0",
+    "opentelemetry-sdk>=1.43.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.43.0",
+    "prometheus-client>=0.25.0",
 ]
 
 [project.scripts]

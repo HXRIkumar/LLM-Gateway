@@ -11,8 +11,8 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 ---
 
 ## Task 1 — Structured access logs, complete & correlated
-- [ ] Ensure every request emits one structured access log carrying: `request_id`, org/key (hashed prefix), chosen provider + model, route objective/reason, retry count, breaker outcome, upstream + total latency, token counts, cost, and final status. Consistent field names across the app.
-- [ ] Audit that no forbidden field (secret, raw key, prompt/response body) can appear in any log.
+- [x] Every request emits one structured `request.completed` access log: `request_id` (contextvar), key hashed prefix, chosen provider + model, route reason, attempts/providers-tried, breaker outcome, latency, token counts, cost, and final status. Consistent field names.
+- [x] Audited: no secret, raw key, or prompt/response body appears in any log (test asserts absence).
 - **Accept:** integration test asserts an access-log line contains the required fields and none of the forbidden ones; `make check` green.
 
 ## Task 2 — OpenTelemetry tracing (fill the trace seam)

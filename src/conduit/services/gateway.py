@@ -15,6 +15,8 @@ import asyncio
 import random
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass, field
+from decimal import Decimal
 
 import structlog
 
@@ -48,6 +50,15 @@ from conduit.services.policies import PolicyService
 from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
+
+
+@dataclass
+class _Observation:
+    """Mutable per-request execution facts gathered for the access log + metrics."""
+
+    attempts: int = 0
+    providers_tried: list[str] = field(default_factory=list)
+    breaker_outcome: str = "closed"
 
 
 class Gateway:
@@ -88,10 +99,11 @@ class Gateway:
         self, request: ChatCompletionRequest, principal: Principal
     ) -> ChatCompletionResponse:
         decision = await self._plan(request, principal)
+        obs = _Observation()
         start = time.perf_counter()
-        response, target = await self._execute_with_fallback(request, decision)
+        response, target = await self._execute_with_fallback(request, decision, obs)
         latency_ms = int((time.perf_counter() - start) * 1000)
-        await self._account(
+        cost = await self._account(
             target.provider,
             target.model,
             principal,
@@ -99,10 +111,13 @@ class Gateway:
             latency_ms=latency_ms,
             status="ok",
         )
+        self._log_completion(
+            principal, decision, target, response.usage, cost, latency_ms, obs, "ok"
+        )
         return response
 
     async def _execute_with_fallback(
-        self, request: ChatCompletionRequest, decision: RoutingDecision
+        self, request: ChatCompletionRequest, decision: RoutingDecision, obs: _Observation
     ) -> tuple[ChatCompletionResponse, RoutingTarget]:
         """Try the primary then each fallback (breaker + retry per target)."""
         targets = [
@@ -111,8 +126,9 @@ class Gateway:
         ]
 
         async def attempt(target: RoutingTarget) -> ChatCompletionResponse:
+            obs.providers_tried.append(target.provider)
             provider = self._registry.get(target.provider)
-            return await self._execute_unary(provider, self._for_target(request, target))
+            return await self._execute_unary(provider, self._for_target(request, target), obs)
 
         return await walk_fallback(targets, attempt)
 
@@ -123,7 +139,7 @@ class Gateway:
         return request.model_copy(update={"model": target.model})
 
     async def _execute_unary(
-        self, provider: Provider, request: ChatCompletionRequest
+        self, provider: Provider, request: ChatCompletionRequest, obs: _Observation
     ) -> ChatCompletionResponse:
         """Execute a unary call under the circuit breaker + retry policy.
 
@@ -133,9 +149,11 @@ class Gateway:
         """
         breaker = self._breaker
         if breaker is not None and not await breaker.allow(provider.name):
+            obs.breaker_outcome = "open"
             raise ProviderError(f"circuit breaker open for provider {provider.name!r}")
 
         async def call() -> ChatCompletionResponse:
+            obs.attempts += 1
             return await provider.chat_completion(request)
 
         try:
@@ -143,6 +161,7 @@ class Gateway:
         except ConduitError as exc:
             if breaker is not None and is_retryable(exc):
                 await breaker.record_failure(provider.name)
+                obs.breaker_outcome = "failure"
             raise
         if breaker is not None:
             await breaker.record_success(provider.name)
@@ -156,8 +175,9 @@ class Gateway:
             RoutingTarget(provider=decision.provider, model=decision.model),
             *decision.fallbacks,
         ]
+        obs = _Observation()
         start = time.perf_counter()
-        iterator, target, first_chunk = await self._open_stream(request, targets)
+        iterator, target, first_chunk = await self._open_stream(request, targets, obs)
         last_usage: Usage | None = first_chunk.usage
         yield first_chunk
         async for chunk in iterator:
@@ -166,7 +186,7 @@ class Gateway:
             yield chunk
         # Reached only on full, successful completion (after [DONE]).
         latency_ms = int((time.perf_counter() - start) * 1000)
-        await self._account(
+        cost = await self._account(
             target.provider,
             target.model,
             principal,
@@ -174,15 +194,19 @@ class Gateway:
             latency_ms=latency_ms,
             status="ok",
         )
+        self._log_completion(principal, decision, target, last_usage, cost, latency_ms, obs, "ok")
 
     async def _open_stream(
-        self, request: ChatCompletionRequest, targets: list[RoutingTarget]
+        self, request: ChatCompletionRequest, targets: list[RoutingTarget], obs: _Observation
     ) -> tuple[AsyncIterator[ChatCompletionChunk], RoutingTarget, ChatCompletionChunk]:
         """Prime a stream, falling back before the first byte. Never retried mid-stream."""
         last: ConduitError | None = None
         for target in targets:
+            obs.providers_tried.append(target.provider)
+            obs.attempts += 1
             provider = self._registry.get(target.provider)
             if self._breaker is not None and not await self._breaker.allow(provider.name):
+                obs.breaker_outcome = "open"
                 last = ProviderError(f"circuit breaker open for provider {provider.name!r}")
                 continue
             iterator = provider.stream_chat_completion(
@@ -194,12 +218,14 @@ class Gateway:
                 last = ProviderError(f"provider {provider.name!r} returned an empty stream")
                 if self._breaker is not None:
                     await self._breaker.record_failure(provider.name)
+                    obs.breaker_outcome = "failure"
                 continue
             except ConduitError as exc:
                 if not is_retryable(exc):
                     raise
                 if self._breaker is not None:
                     await self._breaker.record_failure(provider.name)
+                    obs.breaker_outcome = "failure"
                 last = exc
                 continue
             if self._breaker is not None:
@@ -284,13 +310,42 @@ class Gateway:
         usage: Usage | None,
         latency_ms: int,
         status: str,
-    ) -> None:
-        await self._usage.record(
+    ) -> Decimal:
+        return await self._usage.record(
             org_id=principal.org_id,
             api_key_id=principal.api_key_id,
             provider=provider,
             model=model,
             usage=usage,
+            latency_ms=latency_ms,
+            status=status,
+        )
+
+    def _log_completion(
+        self,
+        principal: Principal,
+        decision: RoutingDecision,
+        target: RoutingTarget,
+        usage: Usage | None,
+        cost: Decimal,
+        latency_ms: int,
+        obs: _Observation,
+        status: str,
+    ) -> None:
+        """One complete, correlated access log per request. No secrets/bodies (§7)."""
+        logger.info(
+            "request.completed",
+            key_prefix=principal.prefix,
+            provider=target.provider,
+            model=target.model,
+            reason=decision.reason,
+            attempts=obs.attempts,
+            providers_tried=obs.providers_tried,
+            breaker_outcome=obs.breaker_outcome,
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            total_tokens=usage.total_tokens if usage else 0,
+            cost_usd=str(cost),
             latency_ms=latency_ms,
             status=status,
         )

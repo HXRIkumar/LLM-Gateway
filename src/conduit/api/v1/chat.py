@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import orjson
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.responses import Response
 
@@ -24,6 +24,11 @@ from conduit.api.middleware import CurrentPrincipal
 from conduit.domain.schemas import ChatCompletionChunk, ChatCompletionRequest
 
 router = APIRouter(prefix="/v1", tags=["chat"])
+
+
+def _bypass_cache(cache_control: str | None) -> bool:
+    """Honor a standard ``Cache-Control: no-store`` request header as a cache bypass."""
+    return cache_control is not None and "no-store" in cache_control.lower()
 
 
 def _encode_event(chunk: ChatCompletionChunk) -> bytes:
@@ -56,8 +61,12 @@ async def create_chat_completion(
     payload: ChatCompletionRequest,
     principal: CurrentPrincipal,
     gateway: GatewayDep,
+    cache_control: str | None = Header(default=None),
 ) -> Response:
+    bypass_cache = _bypass_cache(cache_control)
     if payload.stream:
-        return await _streaming_response(gateway.stream_chat_completion(payload, principal))
-    response = await gateway.chat_completion(payload, principal)
+        return await _streaming_response(
+            gateway.stream_chat_completion(payload, principal, bypass_cache=bypass_cache)
+        )
+    response = await gateway.chat_completion(payload, principal, bypass_cache=bypass_cache)
     return JSONResponse(content=response.model_dump(mode="json", exclude_none=True))

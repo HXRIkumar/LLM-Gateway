@@ -17,6 +17,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import Any
 
 import structlog
 from opentelemetry import trace
@@ -28,6 +29,13 @@ from conduit.domain.errors import (
     ConduitError,
     ProviderError,
     RateLimited,
+)
+from conduit.domain.optimize.cache import (
+    ResponseCache,
+    assemble_response,
+    cache_key,
+    is_cacheable,
+    response_to_chunks,
 )
 from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.fallback import walk_fallback
@@ -54,6 +62,17 @@ from conduit.services.policies import PolicyService
 from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
+
+
+def _delta_text(chunk: ChatCompletionChunk) -> str:
+    """The text content carried by a chunk's first choice delta (empty if none)."""
+    if not chunk.choices:
+        return ""
+    return chunk.choices[0].delta.content or ""
+
+
+def _finish_reason(chunk: ChatCompletionChunk) -> str | None:
+    return chunk.choices[0].finish_reason if chunk.choices else None
 
 
 @dataclass
@@ -86,6 +105,7 @@ class Gateway:
         stats: LatencyStats | None = None,
         tracer: Tracer | None = None,
         metrics: Metrics | None = None,
+        cache: ResponseCache | None = None,
     ) -> None:
         self._registry = registry
         self._router = router
@@ -102,13 +122,23 @@ class Gateway:
         self._breaker = breaker
         self._policy_service = policy_service
         self._stats = stats
+        self._cache = cache
 
     async def chat_completion(
-        self, request: ChatCompletionRequest, principal: Principal
+        self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
     ) -> ChatCompletionResponse:
         with self._tracer.start_as_current_span("gateway.chat_completion") as span:
             span.set_attribute("conduit.request_model", request.model)
             decision = await self._plan(request, principal)
+
+            key = cache_key(request) if self._cacheable(request, bypass_cache) else None
+            if key is not None:
+                cached = await self._cache.get(key)  # type: ignore[union-attr]
+                if cached is not None:
+                    self._on_cache_hit(span, principal, cached)
+                    return cached
+                self._record_cache_event("miss")
+
             obs = _Observation()
             start = time.perf_counter()
             try:
@@ -136,6 +166,8 @@ class Gateway:
                 principal, decision, target, response.usage, cost, latency_ms, obs, "ok"
             )
             self._record_success(target, response.usage, cost, latency_ms)
+            if key is not None:
+                await self._cache.set(key, response)  # type: ignore[union-attr]
             return response
 
     async def _execute_with_fallback(
@@ -210,9 +242,20 @@ class Gateway:
         return result
 
     async def stream_chat_completion(
-        self, request: ChatCompletionRequest, principal: Principal
+        self, request: ChatCompletionRequest, principal: Principal, *, bypass_cache: bool = False
     ) -> AsyncIterator[ChatCompletionChunk]:
         decision = await self._plan(request, principal)
+
+        key = cache_key(request) if self._cacheable(request, bypass_cache) else None
+        if key is not None:
+            cached = await self._cache.get(key)  # type: ignore[union-attr]
+            if cached is not None:
+                self._on_cache_hit(None, principal, cached)
+                for chunk in response_to_chunks(cached):
+                    yield chunk
+                return
+            self._record_cache_event("miss")
+
         targets = [
             RoutingTarget(provider=decision.provider, model=decision.model),
             *decision.fallbacks,
@@ -226,10 +269,14 @@ class Gateway:
             span.set_attribute("conduit.model", target.model)
             span.set_attribute("conduit.attempts", obs.attempts)
         last_usage: Usage | None = first_chunk.usage
+        content = _delta_text(first_chunk)
+        finish_reason = _finish_reason(first_chunk)
         yield first_chunk
         async for chunk in iterator:
             if chunk.usage is not None:
                 last_usage = chunk.usage
+            content += _delta_text(chunk)
+            finish_reason = _finish_reason(chunk) or finish_reason
             yield chunk
         # Reached only on full, successful completion (after [DONE]).
         latency_ms = int((time.perf_counter() - start) * 1000)
@@ -243,6 +290,18 @@ class Gateway:
         )
         self._log_completion(principal, decision, target, last_usage, cost, latency_ms, obs, "ok")
         self._record_success(target, last_usage, cost, latency_ms)
+        if key is not None:
+            await self._cache.set(  # type: ignore[union-attr]
+                key,
+                assemble_response(
+                    id=first_chunk.id,
+                    created=first_chunk.created,
+                    model=first_chunk.model,
+                    content=content,
+                    finish_reason=finish_reason,
+                    usage=last_usage,
+                ),
+            )
 
     async def _open_stream(
         self, request: ChatCompletionRequest, targets: list[RoutingTarget], obs: _Observation
@@ -436,3 +495,28 @@ class Gateway:
             self._metrics.requests_total.labels(
                 provider=provider, model=model, status="error"
             ).inc()
+
+    # --- cache helpers ------------------------------------------------------
+
+    def _cacheable(self, request: ChatCompletionRequest, bypass_cache: bool) -> bool:
+        return self._cache is not None and not bypass_cache and is_cacheable(request)
+
+    def _record_cache_event(self, event: str) -> None:
+        if self._metrics is not None:
+            self._metrics.cache_events_total.labels(event=event).inc()
+
+    def _on_cache_hit(
+        self, span: Any, principal: Principal, cached: ChatCompletionResponse
+    ) -> None:
+        """Record a cache hit: metric, span attribute, and an access log (no bodies)."""
+        self._record_cache_event("hit")
+        if span is not None:
+            span.set_attribute("conduit.cache", "hit")
+            span.set_attribute("conduit.status", "ok")
+        logger.info(
+            "request.cache_hit",
+            key_prefix=principal.prefix,
+            model=cached.model,
+            total_tokens=cached.usage.total_tokens if cached.usage else 0,
+            status="ok",
+        )

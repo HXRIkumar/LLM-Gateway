@@ -76,6 +76,12 @@ class Metrics:
             ["provider"],
             registry=self.registry,
         )
+        self.cache_events_total = Counter(
+            "conduit_cache_events_total",
+            "Response-cache lookups by outcome.",
+            ["event"],
+            registry=self.registry,
+        )
 
     def set_breaker_state(self, provider: str, state: str) -> None:
         self.circuit_breaker_state.labels(provider=provider).set(_BREAKER_STATE_CODE.get(state, 0))

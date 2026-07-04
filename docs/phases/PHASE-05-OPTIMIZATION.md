@@ -11,8 +11,8 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 ---
 
 ## Task 1 — Exact-match response cache (foundation)
-- [ ] `domain/optimize/cache.py` (pure policy: cacheability + key derivation) + an `infra/` Redis-backed cache store with TTL. Key = a stable hash of the cacheability-relevant request fields (model, messages, and output-affecting params). A request is cacheable only when safe (e.g. `temperature == 0` or an explicit cacheable flag) — the exact rule is recorded in ADR-0008. Support an explicit bypass (header/param).
-- [ ] Wire a cache **read** before execute and a cache **write** after a successful execute, in the §5 step 6 seam — for both unary and streaming (reassemble then cache; replay as a well-formed SSE stream on hit).
+- [x] `domain/optimize/cache.py` (pure policy: cacheability + key derivation) + an `infra/` Redis-backed cache store with TTL. Key = a stable hash of the cacheability-relevant request fields (model, messages, and output-affecting params). A request is cacheable only when safe (e.g. `temperature == 0` or an explicit cacheable flag) — the exact rule is recorded in ADR-0008. Support an explicit bypass (header/param).
+- [x] Wire a cache **read** before execute and a cache **write** after a successful execute, in the §5 step 6 seam — for both unary and streaming (reassemble then cache; replay as a well-formed SSE stream on hit).
 - **Accept:** integration test (real Redis + respx) — an identical cacheable request is served from cache with **no** upstream call; a non-cacheable or bypassed request always hits the provider; a cached streaming response replays with correct SSE framing and `[DONE]`; `make check` green.
 
 ## Task 2 — In-flight deduplication (single-flight)

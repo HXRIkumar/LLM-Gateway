@@ -22,6 +22,7 @@ from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
 from conduit.domain.routing.engine import SmartRouter
+from conduit.infra.cache import RedisResponseCache
 from conduit.infra.db.engine import check_database
 from conduit.infra.redis import (
     ProviderHealthStore,
@@ -129,6 +130,9 @@ def get_gateway(
                 cooldown_seconds=settings.breaker_cooldown_seconds,
             ),
         )
+    cache = (
+        RedisResponseCache(redis, settings.cache_ttl_seconds) if settings.cache_enabled else None
+    )
     return Gateway(
         registry,
         router,
@@ -143,6 +147,7 @@ def get_gateway(
         stats=UsageLatencyStats(sessionmaker),
         tracer=tracer,
         metrics=metrics,
+        cache=cache,
     )
 
 

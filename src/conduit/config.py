@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     otel_service_name: str = "conduit"
     metrics_enabled: bool = True
 
+    # --- Caching (Phase 5) ---
+    # Exact-match response cache: only deterministic (temperature==0), single-shaped
+    # requests are cached; a `Cache-Control: no-store` request header bypasses it.
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 3600
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

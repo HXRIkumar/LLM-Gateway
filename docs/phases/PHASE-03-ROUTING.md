@@ -36,8 +36,8 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 - **Accept:** unit tests — the cheapest capable+allowed candidate is chosen; incapable/denied candidates are excluded; ties break deterministically; the decision carries an ordered fallback plan; `make check` green.
 
 ## Task 6 — Latency-optimized strategy + a stats port
-- [ ] `domain/routing/stats.py`: a `LatencyStats` port (pure interface) the domain reads; an `infra/` adapter implements it from Phase 2's rolling latency/health data (Redis/Postgres). No vendor/framework imports in the domain side.
-- [ ] `domain/routing/strategies/latency.py`: choose the lowest observed latency among capable+allowed candidates; fallback plan by ascending latency; fall back to a neutral default when no stats exist yet.
+- [x] `domain/routing/stats.py`: a `LatencyStats` port (pure) the domain reads; `services/stats.UsageLatencyStats` implements it from Phase 2's usage-ledger latency (rolling avg per provider/model). No vendor/framework imports on the domain side.
+- [x] `domain/routing/strategies/latency.py`: `rank_by_latency` orders capable candidates by observed latency ascending; candidates without stats sort last preserving order; cold-start (no stats) is a no-op.
 - **Accept:** unit tests with injected stats — fastest capable candidate chosen; cold-start (no stats) behaves sanely; `make check` green.
 
 ## Task 7 — Balanced strategy & strategy selection

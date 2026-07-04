@@ -1,0 +1,12 @@
+# Prometheus scrape config for Conduit.
+# Scrapes the gateway's /metrics endpoint (prometheus-client, gated by
+# CONDUIT_METRICS_ENABLED). Labels stay low-cardinality by design (see ADR-0007).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: conduit-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]

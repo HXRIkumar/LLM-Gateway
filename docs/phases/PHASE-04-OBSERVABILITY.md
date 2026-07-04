@@ -30,7 +30,7 @@ Conventions: telemetry wiring lives in `infra/telemetry/` and is toggled by conf
 - **Accept:** integration test — opening a breaker and hitting a rate limit/budget are reflected in the corresponding metric series and traces; `make check` green.
 
 ## Task 5 — OTel Collector + Prometheus + Grafana wiring
-- [ ] Add the configs the Phase 1 compose observability profile references: `deploy/otel/` (collector pipeline: receive OTLP → export to Prometheus/logging), `deploy/prometheus/` (scrape config targeting the api `/metrics`), `deploy/grafana/` (datasource provisioning for Prometheus). Confirm `make up-observability` (or `docker compose --profile observability up`) is wired.
+- [x] Add the configs the Phase 1 compose observability profile references: `deploy/otel/` (collector pipeline: receive OTLP → export to Prometheus/logging), `deploy/prometheus/` (scrape config targeting the api `/metrics`), `deploy/grafana/` (datasource provisioning for Prometheus). Confirm `make up-observability` (or `docker compose --profile observability up`) is wired. *Configs validated with their native validators (`promtool check config` ✓, collector `validate` ✓, all YAML parses, `docker compose config` resolves). Live profile bring-up not executed in this sandbox — Docker Desktop file-sharing excludes the repo path, so bind-mounting `./deploy/*` fails; see CLAUDE.md §10 caveat.*
 - **Accept:** the observability profile brings up api + postgres + redis + otel-collector + prometheus + grafana healthy; Prometheus reports the api target as `up` and the OTel collector receiving spans; `make check` green (all configs parse/validate).
 
 ## Task 6 — Grafana dashboards (the "dashboards" deliverable)

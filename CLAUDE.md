@@ -284,16 +284,16 @@ raw one-off invocation.
 > Keep this block current. It is how a fresh session knows where the build is.
 
 - **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–4 complete — skeleton/config/health; SQLAlchemy + Alembic +
-  Redis; pure domain core (schemas + errors); and the provider abstraction: the
-  `Provider` async protocol with capability/pricing metadata (`providers/base.py`)
-  and the `name → provider` registry built from a factory table
-  (`providers/registry.py`, wired into the lifespan). A shared `FakeProvider`
-  test double exercises it end-to-end. `make check` green.
-- **Immediate next action:** Phase 1, Task 5 — OpenAI provider adapter
-  (`providers/openai.py`): canonical ⇄ OpenAI translation for unary + streaming
-  over the shared httpx client, error mapping to `domain.errors`, with
-  respx-mocked tests (success, 400/401/429/5xx, timeout, streamed).
+- **State:** Tasks 1–5 complete — skeleton/config/health; SQLAlchemy + Alembic +
+  Redis; pure domain core; provider abstraction + registry; and the OpenAI
+  adapter (`providers/openai.py`): thin canonical ⇄ OpenAI translation for unary
+  + streaming over the shared httpx client, with upstream errors mapped to
+  `domain.errors` (auth/rate-limit/timeout/invalid/5xx). respx tests cover
+  success, error mapping, timeouts, and SSE streaming. `make check` green.
+- **Immediate next action:** Phase 1, Task 6 — Ollama provider adapter
+  (`providers/ollama.py`): canonical ⇄ Ollama translation (unary + streaming),
+  error mapping, base URL from settings; respx tests mirroring the OpenAI ones,
+  proving the same canonical schema works unchanged across a different backend.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

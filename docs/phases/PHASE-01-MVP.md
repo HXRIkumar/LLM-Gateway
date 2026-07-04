@@ -32,7 +32,7 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** a fake in-memory provider implements the protocol and is exercised end-to-end in tests; adding it required only an implementation + a registry entry; `make check` green.
 
 ## Task 5 — OpenAI provider adapter
-- [ ] `providers/openai.py`: canonical ⇄ OpenAI translation for unary and streaming; error mapping onto `domain.errors`; uses the shared async httpx client.
+- [x] `providers/openai.py`: canonical ⇄ OpenAI translation for unary and streaming; error mapping onto `domain.errors`; uses the shared async httpx client.
 - **Accept:** `respx`-mocked tests cover success, 400/401/429/5xx mapping, timeouts, and a streamed response; `make check` green.
 
 ## Task 6 — Ollama provider adapter

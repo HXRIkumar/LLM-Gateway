@@ -283,19 +283,26 @@ raw one-off invocation.
 
 > Keep this block current. It is how a fresh session knows where the build is.
 
-- **Active phase:** Phase 1 — MVP (`docs/phases/PHASE-01-MVP.md`)
-- **State:** Tasks 1–11 complete — the stack runs in Docker. `make up` builds the
-  multi-stage image and brings up api + postgres + redis (healthchecks,
-  migrate-on-start); the API is healthy on :8080 with accurate /healthz + /readyz.
-  Verified a stock OpenAI SDK completes unary + streamed calls against the live
-  container (models.list, chat, stream) and a bad key → 401. Fixed two scaffolding
-  bugs: Dockerfile now copies README.md (wheel build), and the compose `command`
-  folded scalar no longer drops the gunicorn bind. `make check` green (75 tests).
-- **Immediate next action:** Phase 1, Task 12 — compatibility gate + README:
-  compat tests driving Conduit with the real OpenAI SDK (unary + streaming, both
-  providers), and fill in the README Quickstart with the exact verified commands.
-  Then confirm the full Phase 1 exit checklist + ROADMAP DoD and point §10 at
-  Phase 2.
+- **Active phase:** Phase 2 — Reliability (`docs/ROADMAP.md` §"Phase 2"). No
+  phase file exists yet under `docs/phases/`; write `PHASE-02-*.md` (mirroring the
+  Phase 1 task-list format) before starting, then work it top-to-bottom.
+- **State:** ✅ **Phase 1 (MVP) complete** — every task and the exit checklist in
+  `docs/phases/PHASE-01-MVP.md` are ticked and the ROADMAP Phase 1 DoD holds. The
+  gateway is OpenAI-compatible end-to-end: `POST /v1/chat/completions` (unary +
+  SSE streaming) and `GET /v1/models` over OpenAI + Ollama adapters behind a
+  static router; hashed API-key auth with admin endpoints + CLI; async
+  SQLAlchemy/Postgres + Redis; structlog + request-id; multi-stage Docker with
+  `make up` → healthy stack on :8080. `make check` green (78 tests: unit +
+  testcontainers integration + real-OpenAI-SDK compat gate). Phase-2+ concerns
+  (preflight/budget/limits, usage accounting, retry/breaker/fallback, intelligent
+  routing) exist as no-op seams — not pulled forward.
+- **Immediate next action:** Begin Phase 2 — Reliability. Per `docs/ROADMAP.md`:
+  Redis-backed token-bucket rate limits (per key/org, atomic via Lua), per-key/org
+  budgets, usage/cost accounting persisted to Postgres, bounded retries with
+  backoff+jitter, per-provider circuit breakers, health probes, automatic fallback
+  along the routing decision's plan, and `arq` background workers. Fill the
+  preflight/execute/account seams in `services/gateway.py`; do not start until a
+  `PHASE-02` task list + Definition of Done are written.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

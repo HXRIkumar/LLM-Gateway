@@ -68,16 +68,16 @@ Conventions: every task ships with tests and leaves `make check` green. Build in
 - **Accept:** `make up` yields a healthy stack reachable on `:8080`; a stock OpenAI SDK pointed at it completes unary + streamed calls; `make check` green.
 
 ## Task 12 — Compatibility gate & README quickstart
-- [ ] Compatibility tests using the real OpenAI SDK against the running app (unary + streaming).
-- [ ] Fill in the `README.md` Quickstart with the exact `docker compose up` + SDK snippet that works.
+- [x] Compatibility tests using the real OpenAI SDK against the running app (unary + streaming).
+- [x] Fill in the `README.md` Quickstart with the exact `docker compose up` + SDK snippet that works.
 - **Accept:** compatibility tests pass; a new user can follow the README from clone to first successful request; Phase 1 **DoD** in `docs/ROADMAP.md` is fully satisfied. Update `CLAUDE.md` §10 to point at Phase 2.
 
 ---
 
 ### Phase 1 exit checklist
-- [ ] All tasks above checked.
-- [ ] Stock OpenAI SDK works against OpenAI **and** Ollama, unary **and** streaming, changing only `model`.
-- [ ] Auth rejects bad keys (`401`); validation rejects bad input (`400`); both OpenAI-shaped.
-- [ ] `docker compose up` → healthy; `/healthz` + `/readyz` accurate.
-- [ ] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
-- [ ] Docs (`ARCHITECTURE`, ADRs, `CLAUDE.md` §10) reflect reality.
+- [x] All tasks above checked.
+- [x] Stock OpenAI SDK works against OpenAI **and** Ollama, unary **and** streaming, changing only `model`.
+- [x] Auth rejects bad keys (`401`); validation rejects bad input (`400`); both OpenAI-shaped.
+- [x] `docker compose up` → healthy; `/healthz` + `/readyz` accurate.
+- [x] `make check` green; integration tests use real Postgres + Redis (testcontainers) with providers mocked.
+- [x] Docs (`ARCHITECTURE`, ADRs, `CLAUDE.md` §10) reflect reality.

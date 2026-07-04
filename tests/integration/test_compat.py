@@ -83,8 +83,8 @@ async def _sdk_client(app: FastAPI, key: str) -> AsyncOpenAI:
     return AsyncOpenAI(base_url="http://conduit/v1", api_key=key, http_client=sdk_http)
 
 
-async def test_openai_sdk_unary_across_providers(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url, openai_api_key="sk-test")  # type: ignore[arg-type]
+async def test_openai_sdk_unary_across_providers(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url, openai_api_key="sk-test")  # type: ignore[arg-type]
     app = create_app(settings)
     async with lifespan(app):
         client = await _sdk_client(app, await _mint_key(app))
@@ -106,8 +106,8 @@ async def test_openai_sdk_unary_across_providers(postgres_url: str) -> None:
         await client.close()
 
 
-async def test_openai_sdk_streaming_across_providers(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url, openai_api_key="sk-test")  # type: ignore[arg-type]
+async def test_openai_sdk_streaming_across_providers(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url, openai_api_key="sk-test")  # type: ignore[arg-type]
     app = create_app(settings)
     async with lifespan(app):
         client = await _sdk_client(app, await _mint_key(app))
@@ -138,8 +138,8 @@ async def test_openai_sdk_streaming_across_providers(postgres_url: str) -> None:
         await client.close()
 
 
-async def test_openai_sdk_models_list(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url)
+async def test_openai_sdk_models_list(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url)
     app = create_app(settings)
     async with lifespan(app):
         client = await _sdk_client(app, await _mint_key(app))

@@ -73,8 +73,8 @@ async def _usage_rows(postgres_url: str) -> list[UsageRecord]:
         await engine.dispose()
 
 
-async def test_unary_writes_accurate_usage_row(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url, openai_api_key="sk-test")  # type: ignore[arg-type]
+async def test_unary_writes_accurate_usage_row(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url, openai_api_key="sk-test")  # type: ignore[arg-type]
     app = create_app(settings)
     async with lifespan(app):
         key = await _mint_key(app)
@@ -103,8 +103,8 @@ async def test_unary_writes_accurate_usage_row(postgres_url: str) -> None:
     assert row.latency_ms >= 0
 
 
-async def test_streaming_records_usage_at_stream_end(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url)
+async def test_streaming_records_usage_at_stream_end(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url)
     app = create_app(settings)
     async with lifespan(app):
         key = await _mint_key(app)

@@ -8,6 +8,8 @@ and never leaks stack traces, secrets, or request bodies.
 
 from __future__ import annotations
 
+import math
+
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -45,13 +47,18 @@ async def conduit_error_handler(request: Request, exc: Exception) -> JSONRespons
             status=exc.status_code,
             code=exc.code,
         )
-    return error_response(
+    response = error_response(
         status_code=exc.status_code,
         message=exc.message,
         error_type=exc.error_type,
         param=exc.param,
         code=exc.code,
     )
+    # Rate-limit errors advertise when to retry.
+    retry_after = getattr(exc, "retry_after", None)
+    if isinstance(retry_after, int | float):
+        response.headers["Retry-After"] = str(max(1, math.ceil(retry_after)))
+    return response
 
 
 async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:

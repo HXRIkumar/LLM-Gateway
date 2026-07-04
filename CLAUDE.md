@@ -286,15 +286,14 @@ raw one-off invocation.
 - **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
   on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
   `v0.1.0`, and pushed.
-- **State:** Phase 2 Task 1 done — usage & cost accounting. `usage_record` ledger
-  (migration `52e4817988bb`), `services/usage.py` (pure `compute_cost` from
-  provider pricing + `UsageService` writing via the session *factory* so
-  streaming accounts after `[DONE]`), wired into the gateway `account` stage for
-  both unary and streaming. `make check` green (83 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 2 — Redis token-bucket rate limiting:
-  pure `domain/reliability/ratelimit.py` policy + port, atomic Lua bucket in
-  `infra/redis.py`, wire preflight → `429` + `Retry-After`, fail-open on Redis
-  down (record in ADR-0005).
+- **State:** Phase 2 Tasks 1-2 done — usage/cost accounting (`usage_record`) and
+  Redis token-bucket rate limiting: pure `domain/reliability/ratelimit.py` policy
+  + `RateLimiter` port, atomic Lua `RedisRateLimiter` (fail-open on Redis down),
+  wired into gateway preflight (per-key + per-org) → `429` + `Retry-After` via
+  `domain.errors.RateLimited`. `make check` green (92 tests), compat gate intact.
+- **Immediate next action:** Phase 2 Task 3 — budgets: `budget` migration,
+  `services/budgets.py` + pure check summing `usage_record` spend for the period,
+  wire preflight → `429 insufficient_quota`, admin endpoints under `api/v1/admin/`.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

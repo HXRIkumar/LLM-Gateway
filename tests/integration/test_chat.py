@@ -60,8 +60,10 @@ def _body(model: str) -> dict[str, object]:
     return {"model": model, "messages": [{"role": "user", "content": "hi"}]}
 
 
-async def test_unary_chat_across_providers_and_error_paths(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url, openai_api_key="sk-test")  # type: ignore[arg-type]
+async def test_unary_chat_across_providers_and_error_paths(
+    postgres_url: str, redis_url: str
+) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url, openai_api_key="sk-test")  # type: ignore[arg-type]
     app = create_app(settings)
 
     async with lifespan(app):
@@ -109,8 +111,8 @@ async def test_unary_chat_across_providers_and_error_paths(postgres_url: str) ->
             assert unknown.json()["error"]["code"] == "model_not_found"
 
 
-async def test_models_endpoint_lists_advertised_models(postgres_url: str) -> None:
-    settings = Settings(database_url=postgres_url)
+async def test_models_endpoint_lists_advertised_models(postgres_url: str, redis_url: str) -> None:
+    settings = Settings(database_url=postgres_url, redis_url=redis_url)
     app = create_app(settings)
 
     async with lifespan(app):

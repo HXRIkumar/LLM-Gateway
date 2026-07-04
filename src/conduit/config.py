@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     # set via CONDUIT_MODEL_ROUTES.
     model_routes: dict[str, str] = Field(default_factory=dict)
 
+    # --- Rate limiting (Phase 2) ---
+    rate_limit_enabled: bool = True
+    rate_limit_per_key_requests: int = 60
+    rate_limit_per_key_window_seconds: float = 60.0
+    rate_limit_per_org_requests: int = 600
+    rate_limit_per_org_window_seconds: float = 60.0
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0

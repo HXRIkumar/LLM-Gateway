@@ -18,11 +18,11 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** integration test — a unary request writes an accurate row (tokens + computed cost + latency + status); a streaming request records usage on completion; `make check` green.
 
 ## Task 2 — Redis token-bucket rate limiting (preflight)
-- [ ] `domain/reliability/ratelimit.py`: pure limiter policy + `RateLimiter` port (limits in → allow/deny + retry-after out). No I/O.
-- [ ] `infra/redis.py`: atomic token-bucket via a **Lua script** (per-key and per-org windows) so concurrent requests can't over-admit.
-- [ ] Limits sourced from `Settings`/DB (requests-per-window per key/org; tokens-per-window optional).
-- [ ] Wire into gateway **preflight**; deny → OpenAI-shaped `429` with a `Retry-After` header.
-- [ ] Redis-down posture: **fail-open** (admit, emit a loud warning/metric) — record this in ADR-0005.
+- [x] `domain/reliability/ratelimit.py`: pure limiter policy + `RateLimiter` port (limits in → allow/deny + retry-after out). No I/O.
+- [x] `infra/redis.py`: atomic token-bucket via a **Lua script** (per-key and per-org windows) so concurrent requests can't over-admit.
+- [x] Limits sourced from `Settings`/DB (requests-per-window per key/org; tokens-per-window optional).
+- [x] Wire into gateway **preflight**; deny → OpenAI-shaped `429` with a `Retry-After` header.
+- [x] Redis-down posture: **fail-open** (admit, emit a loud warning/metric) — record this in ADR-0005.
 - **Accept:** integration test on real Redis (testcontainers) — bucket admits N then `429`s, refills over time, stays atomic under concurrent calls; `make check` green.
 
 ## Task 3 — Budgets (preflight)

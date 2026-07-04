@@ -73,9 +73,13 @@ def _reconstruct(sse_text: str) -> tuple[list[str], str]:
     ],
 )
 async def test_streaming_sse_framing_and_termination(
-    postgres_url: str, model: str, upstream_url: str, upstream_response: httpx.Response
+    postgres_url: str,
+    redis_url: str,
+    model: str,
+    upstream_url: str,
+    upstream_response: httpx.Response,
 ) -> None:
-    settings = Settings(database_url=postgres_url, openai_api_key="sk-test")  # type: ignore[arg-type]
+    settings = Settings(database_url=postgres_url, redis_url=redis_url, openai_api_key="sk-test")  # type: ignore[arg-type]
     app = create_app(settings)
 
     async with lifespan(app):

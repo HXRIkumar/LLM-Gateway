@@ -17,9 +17,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
+from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
-from conduit.infra.redis import check_redis
+from conduit.infra.redis import RedisRateLimiter, check_redis
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.gateway import Gateway
 from conduit.services.usage import UsageService
@@ -75,9 +76,29 @@ def get_gateway(
     registry: ProviderRegistryDep,
     routing: RoutingStrategyDep,
     sessionmaker: SessionmakerDep,
+    redis: RedisDep,
+    settings: SettingsDep,
 ) -> Gateway:
     usage = UsageService(sessionmaker, registry)
-    return Gateway(registry, routing, usage)
+    rate_limiter = None
+    key_limit = None
+    org_limit = None
+    if settings.rate_limit_enabled:
+        rate_limiter = RedisRateLimiter(redis)
+        key_limit = RateLimit(
+            settings.rate_limit_per_key_requests, settings.rate_limit_per_key_window_seconds
+        )
+        org_limit = RateLimit(
+            settings.rate_limit_per_org_requests, settings.rate_limit_per_org_window_seconds
+        )
+    return Gateway(
+        registry,
+        routing,
+        usage,
+        rate_limiter=rate_limiter,
+        key_limit=key_limit,
+        org_limit=org_limit,
+    )
 
 
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]

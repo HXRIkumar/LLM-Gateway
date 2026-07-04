@@ -3,10 +3,10 @@
     authenticate → validate → preflight → route → execute → account → respond
 
 Authentication and validation happen at the edge and arrive as a ``Principal``
-and a validated request. Preflight (rate limit + budget) is a seam filled in
-Phase 2 Tasks 2-3; execute is hardened with retry/breaker/fallback in Tasks 4-6;
-account persists usage here (Task 1). Accounting runs once per completed request
-— for unary from the response, for streaming after the stream drains.
+and a validated request. Preflight enforces rate limits (Task 2) and budgets
+(Task 3); execute is hardened with retry/breaker/fallback (Tasks 4-6); account
+persists usage (Task 1). Reliability collaborators are optional — when absent the
+pipeline degrades to the Phase 1 behaviour, which keeps the domain testable.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from collections.abc import AsyncIterator
 
 import structlog
 
+from conduit.domain.errors import RateLimited
+from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -34,16 +36,26 @@ class Gateway:
     """Orchestrates the request pipeline over routing + provider adapters."""
 
     def __init__(
-        self, registry: ProviderRegistry, routing: RoutingStrategy, usage: UsageService
+        self,
+        registry: ProviderRegistry,
+        routing: RoutingStrategy,
+        usage: UsageService,
+        *,
+        rate_limiter: RateLimiter | None = None,
+        key_limit: RateLimit | None = None,
+        org_limit: RateLimit | None = None,
     ) -> None:
         self._registry = registry
         self._routing = routing
         self._usage = usage
+        self._rate_limiter = rate_limiter
+        self._key_limit = key_limit
+        self._org_limit = org_limit
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
     ) -> ChatCompletionResponse:
-        decision = self._plan(request, principal)
+        decision = await self._plan(request, principal)
         provider = self._registry.get(decision.provider)
         start = time.perf_counter()
         response = await provider.chat_completion(request)
@@ -56,7 +68,7 @@ class Gateway:
     async def stream_chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
     ) -> AsyncIterator[ChatCompletionChunk]:
-        decision = self._plan(request, principal)
+        decision = await self._plan(request, principal)
         provider = self._registry.get(decision.provider)
         start = time.perf_counter()
         last_usage: Usage | None = None
@@ -72,9 +84,9 @@ class Gateway:
 
     # --- stages -------------------------------------------------------------
 
-    def _plan(self, request: ChatCompletionRequest, principal: Principal) -> RoutingDecision:
+    async def _plan(self, request: ChatCompletionRequest, principal: Principal) -> RoutingDecision:
         """Shared preflight + routing for both unary and streaming paths."""
-        self._preflight(request, principal)
+        await self._preflight(request, principal)
         decision = self._routing.route(request)
         logger.info(
             "routed request",
@@ -85,8 +97,22 @@ class Gateway:
         )
         return decision
 
-    def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
-        """Preflight-policy seam: rate limit + budget (Phase 2 Tasks 2-3)."""
+    async def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
+        """Preflight policy: rate limits now; budgets in Task 3."""
+        await self._check_rate_limits(principal)
+
+    async def _check_rate_limits(self, principal: Principal) -> None:
+        if self._rate_limiter is None:
+            return
+        scoped: list[tuple[str, RateLimit]] = []
+        if self._key_limit is not None:
+            scoped.append((f"key:{principal.api_key_id}", self._key_limit))
+        if self._org_limit is not None:
+            scoped.append((f"org:{principal.org_id}", self._org_limit))
+        for scope, limit in scoped:
+            result = await self._rate_limiter.check(scope, limit)
+            if not result.allowed:
+                raise RateLimited("rate limit exceeded", retry_after=result.retry_after_seconds)
 
     async def _account(
         self,

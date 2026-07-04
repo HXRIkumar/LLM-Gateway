@@ -11,8 +11,8 @@ Conventions: routing logic is **pure** and lives in `domain/routing/` (unit-test
 ---
 
 ## Task 1 — Provider capability & pricing catalog
-- [ ] Make the per-model metadata on `providers/base` authoritative and complete: context window, supported features (tools/function calling, JSON mode, vision), and input/output per-token pricing. Include a slot for observed latency (populated from Task 6's stats port).
-- [ ] `domain/routing/catalog.py`: a pure catalog that lists candidate `(provider, model)` pairs and filters them by a set of capability requirements.
+- [x] Per-model metadata on `providers/base` is authoritative (context window, tools, JSON mode, vision, input/output pricing); observed latency is read per candidate from the stats port (Task 6) rather than stored on static metadata.
+- [x] `domain/routing/catalog.py`: a pure catalog that lists candidate `(provider, model)` pairs and filters them by a set of capability requirements.
 - **Accept:** unit tests — given requirements (min context length, tools, vision, JSON mode), the catalog returns exactly the capable candidates and excludes the rest; `make check` green.
 
 ## Task 2 — Request classification (fill the preflight classify seam)

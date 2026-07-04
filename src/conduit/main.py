@@ -19,7 +19,7 @@ from conduit import __version__
 from conduit.api import health, metrics
 from conduit.api.errors import register_exception_handlers
 from conduit.api.middleware import RequestContextMiddleware
-from conduit.api.v1 import chat, models
+from conduit.api.v1 import chat, estimate, models
 from conduit.api.v1.admin import budgets as admin_budgets
 from conduit.api.v1.admin import health as admin_health
 from conduit.api.v1.admin import keys as admin_keys
@@ -126,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(metrics.router)
     app.include_router(chat.router)
+    app.include_router(estimate.router)
     app.include_router(models.router)
     app.include_router(admin_keys.router)
     app.include_router(admin_budgets.router)

@@ -30,6 +30,18 @@ def compute_cost(pricing: ModelPricing, prompt_tokens: int, completion_tokens: i
     ) * Decimal(str(pricing.output_per_1k_usd))
 
 
+def provider_pricing(registry: ProviderRegistry, provider_name: str, model: str) -> ModelPricing:
+    """Per-1K pricing for a provider/model from the registry, zero when unknown."""
+    try:
+        provider = registry.get(provider_name)
+    except ProviderError:
+        return ModelPricing()
+    for advertised in provider.models:
+        if advertised.id == model:
+            return advertised.pricing
+    return ModelPricing()
+
+
 class UsageService:
     """Computes cost and persists usage records."""
 
@@ -39,15 +51,9 @@ class UsageService:
         self._sessionmaker = sessionmaker
         self._registry = registry
 
-    def _pricing(self, provider_name: str, model: str) -> ModelPricing:
-        try:
-            provider = self._registry.get(provider_name)
-        except ProviderError:
-            return ModelPricing()
-        for advertised in provider.models:
-            if advertised.id == model:
-                return advertised.pricing
-        return ModelPricing()
+    def pricing(self, provider_name: str, model: str) -> ModelPricing:
+        """Per-1K pricing for a provider/model, or zero pricing when unknown."""
+        return provider_pricing(self._registry, provider_name, model)
 
     async def record(
         self,
@@ -63,7 +69,7 @@ class UsageService:
         prompt = usage.prompt_tokens if usage else 0
         completion = usage.completion_tokens if usage else 0
         total = usage.total_tokens if usage else prompt + completion
-        cost = compute_cost(self._pricing(provider, model), prompt, completion)
+        cost = compute_cost(self.pricing(provider, model), prompt, completion)
         async with self._sessionmaker() as session:
             session.add(
                 UsageRecord(

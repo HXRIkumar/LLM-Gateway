@@ -33,7 +33,7 @@ Conventions: caching/dedup/adaptive policies are **pure** in `domain/` behind po
 - **Accept:** integration test — a captured request replays and returns a well-formed response; replaying under a different routing policy selects a different provider; `make check` green.
 
 ## Task 6 — Cost prediction
-- [ ] `domain/optimize/predict.py`: estimate the cost of a request under the chosen route (and viable alternatives) from a token estimate × catalog pricing. Expose it — a response header and/or an additive `POST /v1/estimate` endpoint (clearly non-standard, never altering the OpenAI-compatible chat contract) — and emit it as a metric/span attribute.
+- [x] `domain/optimize/predict.py`: estimate the cost of a request under the chosen route (and viable alternatives) from a token estimate × catalog pricing. Expose it — a response header and/or an additive `POST /v1/estimate` endpoint (clearly non-standard, never altering the OpenAI-compatible chat contract) — and emit it as a metric/span attribute. *Additive `POST /v1/estimate` (chosen + fallback alternatives); the chat span carries a `conduit.estimated_cost_usd` attribute. Chat contract unchanged.*
 - **Accept:** unit + integration tests — predicted cost is within a stated tolerance of the recorded actual for a known mocked completion; the estimate endpoint/header returns sane values; the standard chat contract is unchanged; `make check` green.
 
 ## Task 7 — Adaptive routing

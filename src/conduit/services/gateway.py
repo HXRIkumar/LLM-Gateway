@@ -38,6 +38,11 @@ from conduit.domain.optimize.cache import (
     response_to_chunks,
 )
 from conduit.domain.optimize.dedup import SingleFlight
+from conduit.domain.optimize.predict import (
+    estimate_completion_tokens,
+    estimate_cost,
+    estimate_prompt_tokens,
+)
 from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.fallback import walk_fallback
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
@@ -62,7 +67,7 @@ from conduit.services.keys import Principal
 from conduit.services.policies import PolicyService
 from conduit.services.replay import ReplayService
 from conduit.services.semantic import SemanticCache
-from conduit.services.usage import UsageService
+from conduit.services.usage import UsageService, provider_pricing
 
 logger = structlog.get_logger("conduit.gateway")
 
@@ -144,6 +149,16 @@ class Gateway:
         with self._tracer.start_as_current_span("gateway.chat_completion") as span:
             span.set_attribute("conduit.request_model", request.model)
             decision = await self._plan(request, principal, policy_override)
+            span.set_attribute(
+                "conduit.estimated_cost_usd",
+                float(
+                    estimate_cost(
+                        provider_pricing(self._registry, decision.provider, decision.model),
+                        estimate_prompt_tokens(request),
+                        estimate_completion_tokens(request),
+                    )
+                ),
+            )
 
             key = cache_key(request) if self._cacheable(request, bypass_cache) else None
             vector: list[float] | None = None

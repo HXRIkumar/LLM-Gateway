@@ -22,6 +22,7 @@ from conduit.infra.db.engine import check_database
 from conduit.infra.redis import check_redis
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.gateway import Gateway
+from conduit.services.usage import UsageService
 
 
 def get_settings(request: Request) -> Settings:
@@ -48,10 +49,15 @@ def get_routing_strategy(request: Request) -> RoutingStrategy:
     return cast(RoutingStrategy, request.app.state.routing_strategy)
 
 
+def get_db_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
+    """The session factory itself — for units of work that outlive the request
+    (e.g. accounting at the end of a stream, after the request session closes)."""
+    return cast("async_sessionmaker[AsyncSession]", request.app.state.db_sessionmaker)
+
+
 async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Yield a per-request session from the shared session factory."""
-    factory = cast("async_sessionmaker[AsyncSession]", request.app.state.db_sessionmaker)
-    async with factory() as session:
+    async with get_db_sessionmaker(request)() as session:
         yield session
 
 
@@ -62,10 +68,16 @@ RedisDep = Annotated[Redis, Depends(get_redis)]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
 ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 RoutingStrategyDep = Annotated[RoutingStrategy, Depends(get_routing_strategy)]
+SessionmakerDep = Annotated["async_sessionmaker[AsyncSession]", Depends(get_db_sessionmaker)]
 
 
-def get_gateway(registry: ProviderRegistryDep, routing: RoutingStrategyDep) -> Gateway:
-    return Gateway(registry, routing)
+def get_gateway(
+    registry: ProviderRegistryDep,
+    routing: RoutingStrategyDep,
+    sessionmaker: SessionmakerDep,
+) -> Gateway:
+    usage = UsageService(sessionmaker, registry)
+    return Gateway(registry, routing, usage)
 
 
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]

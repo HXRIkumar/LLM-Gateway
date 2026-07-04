@@ -1,18 +1,17 @@
 """The request pipeline — the heart of the gateway (CLAUDE.md §5).
 
-Every request flows through the same ordered stages:
-
     authenticate → validate → preflight → route → execute → account → respond
 
-Authentication and validation happen at the edge (the auth dependency and
-Pydantic parsing) and arrive here as a resolved ``Principal`` and a validated
-``ChatCompletionRequest``. Preflight (budget/limits, V2) and accounting
-(usage/cost + decision recording, V2) are real seams here — no-ops today, filled
-in later phases without reshaping the pipeline.
+Authentication and validation happen at the edge and arrive as a ``Principal``
+and a validated request. Preflight (rate limit + budget) is a seam filled in
+Phase 2 Tasks 2-3; execute is hardened with retry/breaker/fallback in Tasks 4-6;
+account persists usage here (Task 1). Accounting runs once per completed request
+— for unary from the response, for streaming after the stream drains.
 """
 
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncIterator
 
 import structlog
@@ -22,9 +21,11 @@ from conduit.domain.schemas import (
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
+    Usage,
 )
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.keys import Principal
+from conduit.services.usage import UsageService
 
 logger = structlog.get_logger("conduit.gateway")
 
@@ -32,17 +33,24 @@ logger = structlog.get_logger("conduit.gateway")
 class Gateway:
     """Orchestrates the request pipeline over routing + provider adapters."""
 
-    def __init__(self, registry: ProviderRegistry, routing: RoutingStrategy) -> None:
+    def __init__(
+        self, registry: ProviderRegistry, routing: RoutingStrategy, usage: UsageService
+    ) -> None:
         self._registry = registry
         self._routing = routing
+        self._usage = usage
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
     ) -> ChatCompletionResponse:
         decision = self._plan(request, principal)
         provider = self._registry.get(decision.provider)
+        start = time.perf_counter()
         response = await provider.chat_completion(request)
-        self._account(request, decision, principal)
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        await self._account(
+            decision, principal, usage=response.usage, latency_ms=latency_ms, status="ok"
+        )
         return response
 
     async def stream_chat_completion(
@@ -50,9 +58,17 @@ class Gateway:
     ) -> AsyncIterator[ChatCompletionChunk]:
         decision = self._plan(request, principal)
         provider = self._registry.get(decision.provider)
+        start = time.perf_counter()
+        last_usage: Usage | None = None
         async for chunk in provider.stream_chat_completion(request):
+            if chunk.usage is not None:
+                last_usage = chunk.usage
             yield chunk
-        self._account(request, decision, principal)
+        # Reached only on full, successful completion (after [DONE]).
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        await self._account(
+            decision, principal, usage=last_usage, latency_ms=latency_ms, status="ok"
+        )
 
     # --- stages -------------------------------------------------------------
 
@@ -70,9 +86,23 @@ class Gateway:
         return decision
 
     def _preflight(self, request: ChatCompletionRequest, principal: Principal) -> None:
-        """Preflight-policy seam: budget + rate limit (V2), classification (V3)."""
+        """Preflight-policy seam: rate limit + budget (Phase 2 Tasks 2-3)."""
 
-    def _account(
-        self, request: ChatCompletionRequest, decision: RoutingDecision, principal: Principal
+    async def _account(
+        self,
+        decision: RoutingDecision,
+        principal: Principal,
+        *,
+        usage: Usage | None,
+        latency_ms: int,
+        status: str,
     ) -> None:
-        """Usage/cost accounting + decision recording seam (V2)."""
+        await self._usage.record(
+            org_id=principal.org_id,
+            api_key_id=principal.api_key_id,
+            provider=decision.provider,
+            model=decision.model,
+            usage=usage,
+            latency_ms=latency_ms,
+            status=status,
+        )

@@ -11,10 +11,10 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 ---
 
 ## Task 1 — Usage & cost accounting (fill the `account` seam)
-- [ ] Alembic migration: `usage_record` (`org_id`, `api_key_id`, `provider`, `model`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `cost_usd`, `latency_ms`, `status`, `created_at`), indexed on (`org_id`, `created_at`). See `docs/ARCHITECTURE.md` §9.
-- [ ] `services/usage.py`: compute `cost_usd` from the provider pricing metadata on `providers/base` (per-token pricing from Task 4 of Phase 1); persist one record per completed request.
-- [ ] Capture usage for **both** paths: unary from the response, streaming at stream end (after `[DONE]`), without breaking SSE framing.
-- [ ] Wire it into the gateway `account` stage (currently a no-op).
+- [x] Alembic migration: `usage_record` (`org_id`, `api_key_id`, `provider`, `model`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `cost_usd`, `latency_ms`, `status`, `created_at`), indexed on (`org_id`, `created_at`). See `docs/ARCHITECTURE.md` §9.
+- [x] `services/usage.py`: compute `cost_usd` from the provider pricing metadata on `providers/base` (per-token pricing from Task 4 of Phase 1); persist one record per completed request.
+- [x] Capture usage for **both** paths: unary from the response, streaming at stream end (after `[DONE]`), without breaking SSE framing.
+- [x] Wire it into the gateway `account` stage (currently a no-op).
 - **Accept:** integration test — a unary request writes an accurate row (tokens + computed cost + latency + status); a streaming request records usage on completion; `make check` green.
 
 ## Task 2 — Redis token-bucket rate limiting (preflight)

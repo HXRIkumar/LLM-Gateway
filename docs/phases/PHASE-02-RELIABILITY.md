@@ -38,9 +38,9 @@ Conventions: every task ships with tests and leaves `make check` green. Unit-tes
 - **Accept:** unit tests cover backoff/jitter schedule and the retryable/terminal split; integration test (`respx`) — a transient `503`-then-success is retried, a `400` is not; `make check` green.
 
 ## Task 5 — Per-provider circuit breaker (harden `execute`)
-- [ ] `domain/reliability/breaker.py`: pure breaker state machine (closed → open → half-open) with failure threshold + cooldown.
-- [ ] `infra/redis.py`: **shared** breaker state per provider (so every worker/process agrees), with atomic transitions.
-- [ ] Wire into `execute`: when open, fast-fail the provider (handing off to fallback in Task 6) instead of calling it.
+- [x] `domain/reliability/breaker.py`: pure breaker state machine (closed → open → half-open) with failure threshold + cooldown.
+- [x] `infra/redis.py`: **shared** breaker state per provider (so every worker/process agrees), with atomic transitions (Lua).
+- [x] Wire into `execute`: when open, fast-fail the provider (handing off to fallback in Task 6) instead of calling it.
 - **Accept:** unit tests for all state transitions; integration test (real Redis) — consecutive failures open the breaker, calls fast-fail while open, a half-open probe closes it on success; `make check` green.
 
 ## Task 6 — Automatic fallback (complete `execute`)

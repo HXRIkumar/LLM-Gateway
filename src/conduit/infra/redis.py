@@ -14,6 +14,7 @@ from redis.asyncio import from_url as redis_from_url
 from redis.exceptions import RedisError
 
 from conduit.config import Settings
+from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimitResult
 
 logger = structlog.get_logger(__name__)
@@ -100,3 +101,82 @@ class RedisRateLimiter:
             retry_after_seconds=max(0.0, float(raw[1])),
             remaining=int(float(raw[2])),
         )
+
+
+# Breaker transitions run atomically in Redis so every worker sees one state.
+_BREAKER_ALLOW_LUA = """
+local state = redis.call('HGET', KEYS[1], 'state')
+if state == false or state == 'closed' or state == 'half_open' then
+  if state == false then return 'closed' end
+  return state
+end
+local opened_at = tonumber(redis.call('HGET', KEYS[1], 'opened_at')) or 0
+if (tonumber(ARGV[1]) - opened_at) >= tonumber(ARGV[2]) then
+  redis.call('HSET', KEYS[1], 'state', 'half_open')
+  redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[3]))
+  return 'half_open'
+end
+return 'open'
+"""
+
+_BREAKER_RECORD_LUA = """
+local outcome = ARGV[1]
+if outcome == 'success' then
+  redis.call('HSET', KEYS[1], 'state', 'closed', 'failures', 0)
+else
+  local state = redis.call('HGET', KEYS[1], 'state')
+  local failures = (tonumber(redis.call('HGET', KEYS[1], 'failures')) or 0) + 1
+  if state == 'half_open' or failures >= tonumber(ARGV[3]) then
+    redis.call('HSET', KEYS[1], 'state', 'open', 'failures', failures, 'opened_at', ARGV[2])
+  else
+    redis.call('HSET', KEYS[1], 'state', 'closed', 'failures', failures)
+  end
+end
+redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[4]))
+return 'OK'
+"""
+
+
+class RedisCircuitBreaker:
+    """Shared per-provider ``CircuitBreaker`` backed by atomic Redis Lua scripts.
+
+    Fails **open** (admits) on a Redis outage: a broken breaker must not take the
+    whole gateway down (ADR-0005).
+    """
+
+    def __init__(self, client: Redis, config: BreakerConfig) -> None:
+        self._client = client
+        self._config = config
+        self._allow_script = client.register_script(_BREAKER_ALLOW_LUA)
+        self._record_script = client.register_script(_BREAKER_RECORD_LUA)
+
+    def _ttl_ms(self) -> int:
+        return int(max(self._config.cooldown_seconds * 4, 60.0) * 1000)
+
+    async def allow(self, provider: str, *, now: float | None = None) -> bool:
+        moment = time.time() if now is None else now
+        try:
+            state = await self._allow_script(
+                keys=[f"breaker:{provider}"],
+                args=[moment, self._config.cooldown_seconds, self._ttl_ms()],
+            )
+        except RedisError as exc:
+            logger.warning("breaker unavailable; failing open", error=exc.__class__.__name__)
+            return True
+        return str(state) != "open"
+
+    async def record_success(self, provider: str, *, now: float | None = None) -> None:
+        await self._record("success", provider, now)
+
+    async def record_failure(self, provider: str, *, now: float | None = None) -> None:
+        await self._record("failure", provider, now)
+
+    async def _record(self, outcome: str, provider: str, now: float | None) -> None:
+        moment = time.time() if now is None else now
+        try:
+            await self._record_script(
+                keys=[f"breaker:{provider}"],
+                args=[outcome, moment, self._config.failure_threshold, self._ttl_ms()],
+            )
+        except RedisError as exc:
+            logger.warning("breaker record failed", error=exc.__class__.__name__)

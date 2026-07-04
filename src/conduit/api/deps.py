@@ -17,11 +17,12 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from conduit.config import Settings
+from conduit.domain.reliability.breaker import BreakerConfig
 from conduit.domain.reliability.ratelimit import RateLimit
 from conduit.domain.reliability.retry import RetryPolicy
 from conduit.domain.routing.strategy import RoutingStrategy
 from conduit.infra.db.engine import check_database
-from conduit.infra.redis import RedisRateLimiter, check_redis
+from conduit.infra.redis import RedisCircuitBreaker, RedisRateLimiter, check_redis
 from conduit.providers.registry import ProviderRegistry
 from conduit.services.budgets import BudgetService
 from conduit.services.gateway import Gateway
@@ -98,6 +99,15 @@ def get_gateway(
         base_delay=settings.retry_base_delay_seconds,
         max_delay=settings.retry_max_delay_seconds,
     )
+    breaker = None
+    if settings.breaker_enabled:
+        breaker = RedisCircuitBreaker(
+            redis,
+            BreakerConfig(
+                failure_threshold=settings.breaker_failure_threshold,
+                cooldown_seconds=settings.breaker_cooldown_seconds,
+            ),
+        )
     return Gateway(
         registry,
         routing,
@@ -107,6 +117,7 @@ def get_gateway(
         org_limit=org_limit,
         budget=BudgetService(sessionmaker),
         retry_policy=retry_policy,
+        breaker=breaker,
     )
 
 

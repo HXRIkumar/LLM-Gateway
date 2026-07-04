@@ -18,9 +18,10 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 import structlog
 
-from conduit.domain.errors import BudgetExceeded, RateLimited
+from conduit.domain.errors import BudgetExceeded, ConduitError, ProviderError, RateLimited
+from conduit.domain.reliability.breaker import CircuitBreaker
 from conduit.domain.reliability.ratelimit import RateLimit, RateLimiter
-from conduit.domain.reliability.retry import RetryPolicy, retry_async
+from conduit.domain.reliability.retry import RetryPolicy, is_retryable, retry_async
 from conduit.domain.routing.strategy import RoutingDecision, RoutingStrategy
 from conduit.domain.schemas import (
     ChatCompletionChunk,
@@ -53,6 +54,7 @@ class Gateway:
         retry_policy: RetryPolicy | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
         rng: random.Random | None = None,
+        breaker: CircuitBreaker | None = None,
     ) -> None:
         self._registry = registry
         self._routing = routing
@@ -64,6 +66,7 @@ class Gateway:
         self._retry_policy = retry_policy or RetryPolicy()
         self._sleep = sleep or asyncio.sleep
         self._rng = rng or random.Random()
+        self._breaker = breaker
 
     async def chat_completion(
         self, request: ChatCompletionRequest, principal: Principal
@@ -81,12 +84,28 @@ class Gateway:
     async def _execute_unary(
         self, provider: Provider, request: ChatCompletionRequest
     ) -> ChatCompletionResponse:
-        """Execute a unary call under the retry policy (same provider, bounded)."""
+        """Execute a unary call under the circuit breaker + retry policy.
+
+        An open breaker fast-fails without calling the provider. Otherwise the
+        call runs under bounded retry; a transient failure of the whole attempt
+        records one breaker failure, a success closes it.
+        """
+        breaker = self._breaker
+        if breaker is not None and not await breaker.allow(provider.name):
+            raise ProviderError(f"circuit breaker open for provider {provider.name!r}")
 
         async def call() -> ChatCompletionResponse:
             return await provider.chat_completion(request)
 
-        return await retry_async(call, self._retry_policy, sleep=self._sleep, rng=self._rng)
+        try:
+            result = await retry_async(call, self._retry_policy, sleep=self._sleep, rng=self._rng)
+        except ConduitError as exc:
+            if breaker is not None and is_retryable(exc):
+                await breaker.record_failure(provider.name)
+            raise
+        if breaker is not None:
+            await breaker.record_success(provider.name)
+        return result
 
     async def stream_chat_completion(
         self, request: ChatCompletionRequest, principal: Principal

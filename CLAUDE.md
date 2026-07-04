@@ -286,14 +286,16 @@ raw one-off invocation.
 - **Active phase:** Phase 2 — Reliability (`docs/phases/PHASE-02-RELIABILITY.md`),
   on branch `feat/phase-2-reliability`. Phase 1 is complete, merged, tagged
   `v0.1.0`, and pushed.
-- **State:** Phase 2 Tasks 1-4 done — accounting, rate limiting, budgets, retry.
-  Pure `domain/reliability/retry.py` (bounded backoff + full jitter,
-  retryable/terminal classification, never mid-stream) wired around the unary
-  execute with injected sleep + rng (config-driven). `make check` green
-  (107 tests), compat gate intact.
-- **Immediate next action:** Phase 2 Task 5 — per-provider circuit breaker: pure
-  `domain/reliability/breaker.py` state machine (closed→open→half-open), shared
-  breaker state in Redis (atomic), wired into execute to fast-fail when open.
+- **State:** Phase 2 Tasks 1-5 done — accounting, rate limiting, budgets, retry,
+  circuit breaker. Pure `domain/reliability/breaker.py` state machine +
+  `RedisCircuitBreaker` (shared per-provider state, atomic Lua, fail-open) wired
+  into unary execute: open → fast-fail; retryable execute failure records a
+  breaker failure; success closes it. Integration tests flush ephemeral Redis
+  state per test for isolation. `make check` green (116 tests), compat gate intact.
+- **Immediate next action:** Phase 2 Task 6 — automatic fallback:
+  `domain/reliability/fallback.py` walking the `RoutingDecision` fallback plan
+  (retryable failure or open breaker → next target; exhaustion →
+  `AllProvidersFailed`), integrated into one coherent execute path.
 
 When you finish a task, tick its box in the phase file and update this block. When
 you finish a phase, update the "Active phase" line and confirm the previous phase

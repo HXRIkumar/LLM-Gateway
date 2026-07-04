@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     retry_base_delay_seconds: float = 0.1
     retry_max_delay_seconds: float = 5.0
 
+    # --- Circuit breaker (Phase 2) ---
+    breaker_enabled: bool = True
+    breaker_failure_threshold: int = 5
+    breaker_cooldown_seconds: float = 30.0
+
     # --- HTTP client ---
     # Timeout (seconds) applied to the shared outbound httpx client.
     request_timeout_seconds: float = 60.0
